@@ -8,7 +8,7 @@
 
 # Ref: Allison's TIPNets process network manuscript
 
-from noise import noise
+from ..utils.noise import noise
 import numpy as np
 
 
@@ -144,7 +144,7 @@ if __name__ == '__main__':
     noiseType = 'exclusive'
     noiseDist = 'uniform'
     noisePara = [1, 0, 1]
-    nstep = 200
+    nstep = 10
     # Initialize the logistic equations
     logistic = Logistic(n, adjM, lagM, noiseType, noiseDist, noisePara)
     # Simulate

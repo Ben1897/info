@@ -11,9 +11,9 @@ import pandas as pd
 from itertools import combinations
 
 # Self-library
-from info import info
-from pdf_computer import pdfComputer
-from sst import conductSST
+from .info import info
+from ..utils.pdf_computer import pdfComputer
+from ..utils.sst import conductSST
 
 
 class processNetwork(object):

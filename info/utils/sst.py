@@ -8,10 +8,9 @@
 # @Last modified time: 2017-03-15T20:53:59-05:00
 
 
-from info import info
 import numpy as np
-from pdf_computer import pdfComputer
-
+from .pdf_computer import pdfComputer
+from ..core.info import info
 
 def conductSST(xdata, ydata, nx=25, ny=25, ntest=100, approach='kde_c', atomCheck=True, returnTrue=False):
     '''

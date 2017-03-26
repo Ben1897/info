@@ -18,7 +18,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors.kde import KernelDensity
 import time
 
-from kdetoolkit import kde_c, kde_cuda, kde_sklearn
+from .kdetoolkit import kde_c, kde_cuda, kde_sklearn
 
 # data types
 float64 = 'float64'

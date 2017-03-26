@@ -68,7 +68,7 @@ def ccm(x, y, x_future, y_future, nemb, tau=1, nn=None, scoremethod='corr', filt
     return y_est, rho
 
 
-def extended_ccm(x, y, x_future, y_future, nemb, lag, tau=1, nn=None):
+def extended_ccm(x, y, x_future, y_future, nemb, lag, tau=1, nn=None, filtered=False):
     '''
     Implementation of the convergent cross mapping method.
     Inputs:
@@ -78,6 +78,7 @@ def extended_ccm(x, y, x_future, y_future, nemb, lag, tau=1, nn=None):
     lag   -- the maximum lag between x and y [int]
     tau   -- the time lag [int]
     nn    -- the number of the nearest neighbors [int]
+    filtered    -- a boolean value decide using find_knn or find_knn2 [boolean]
     Outputs:
     lagset  -- the set of the lags between x and y
     rhoxmpy  -- the correlation coefficients from x mp y in terms of
@@ -108,8 +109,8 @@ def extended_ccm(x, y, x_future, y_future, nemb, lag, tau=1, nn=None):
             x_future_adj, y_future_adj = x_future, y_future
 
         # Conduct CCM
-        _, rho1 = ccm(x_adj, y_adj, x_future_adj, y_future_adj, nemb, tau, nn)  # x[t] xmp y[t+lag] 
-        _, rho2 = ccm(y_adj, x_adj, y_future_adj, x_future_adj, nemb, tau, nn)  # y[t] xmp x[t-lag]
+        _, rho1 = ccm(x_adj, y_adj, x_future_adj, y_future_adj, nemb, tau, nn, filtered=filtered)  # x[t] xmp y[t+lag] 
+        _, rho2 = ccm(y_adj, x_adj, y_future_adj, x_future_adj, nemb, tau, nn, filtered=filtered)  # y[t] xmp x[t-lag]
 
         rhoxmpy[i] = rho1
         rhoympx[-i-1] = rho2
@@ -159,9 +160,13 @@ def find_knn(x_man, x_future_man, nn):
     '''
     nptn2, nemb = x_future_man.shape
 
-    nbrs          = NearestNeighbors(n_neighbors=nn, algorithm='kd_tree').fit(x_man)
-    dist, indices = nbrs.kneighbors(x_future_man)
-    # dist, indices = dist[:, 1:], indices[:, 1:]  # exclude the index of the point itself
+    if x_man.shape == x_future_man.shape and (x_man==x_future_man).all():
+        nbrs          = NearestNeighbors(n_neighbors=nn+1, algorithm='kd_tree').fit(x_man)
+        dist, indices = nbrs.kneighbors(x_future_man)
+        dist, indices = dist[:, 1:], indices[:, 1:]  # exclude the index of the point itself
+    else:
+        nbrs          = NearestNeighbors(n_neighbors=nn, algorithm='kd_tree').fit(x_man)
+        dist, indices = nbrs.kneighbors(x_future_man)
 
     dist = dist + 1e-6
     return dist, indices
@@ -219,8 +224,8 @@ def exp_d(dist):
     '''
     nrow, ncol = dist.shape
 
-    distmin = np.min(dist, axis=1)  # the smallest distance in each vector
-    distmin = np.tile(distmin, (ncol, 1)).T
+    distmin = np.min(dist, axis=1)[:, np.newaxis]  # the smallest distance in each vector
+    # distmin = np.tile(distmin, (ncol, 1)).T
     distw = np.exp(-dist / distmin)
 
     return distw
@@ -267,8 +272,9 @@ def score(y_est, y_true, method='corr'):
     Calculate the estimation score by comparing the true values
     Inputs:
     y_est  -- the estimated source variable [ndarray(nrow,)]
-    Outputs:
     y_true -- the true source variable [ndarray(nrow,)]
+    Outputs:
+    rho    -- the correlation coefficient
     '''
     if method == 'corr':
         rho = np.corrcoef(y_est, y_true)[0, 1]
