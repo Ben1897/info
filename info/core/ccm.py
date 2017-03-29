@@ -7,6 +7,7 @@
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 
+
 def ccm(x, y, x_future, y_future, nemb, tau=1, nn=None, scoremethod='corr', filtered=False):
     '''
     Implementation of the convergent cross mapping method.
@@ -160,7 +161,7 @@ def find_knn(x_man, x_future_man, nn):
     '''
     nptn2, nemb = x_future_man.shape
 
-    if x_man.shape == x_future_man.shape and (x_man==x_future_man).all():
+    if  x_man.shape == x_future_man.shape and (x_man==x_future_man).all():
         nbrs          = NearestNeighbors(n_neighbors=nn+1, algorithm='kd_tree').fit(x_man)
         dist, indices = nbrs.kneighbors(x_future_man)
         dist, indices = dist[:, 1:], indices[:, 1:]  # exclude the index of the point itself
@@ -174,7 +175,7 @@ def find_knn(x_man, x_future_man, nn):
 
 def find_knn2(x_man, x_future_man, nn):
     '''
-    Find the k-nearest-neighbors.
+    Find the k-nearest-neighbors with leave-one-out cross validation.
     Inputs:
     x_man        -- the shadow manifold of x [ndarray(nptn, nemb)]
     x_future_man -- the shadow manifold of the future x [ndarray(nptn2, nemb)]
@@ -200,7 +201,6 @@ def find_knn2(x_man, x_future_man, nn):
 
         # Construct x_man_temp by excluding all the vectors sharing with v_future
         judge = np.array(map(lambda x: ~np.in1d(v_future, x).any(), x_man))
-        # print judge, judge.shape
         x_man_temp = x_man[judge]
 
         # Conduct the knn

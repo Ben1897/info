@@ -8,9 +8,16 @@
 
 import ctypes
 from ctypes import *
+import os
 import numpy as np
 from sklearn.neighbors.kde import KernelDensity
 from time import time
+
+
+# Get the path of the kde.so and cuda_kde.so
+dir_path = os.path.dirname(os.path.realpath(__file__))
+kde_path = os.path.join(dir_path, 'kde.so')
+cudakde_path = os.path.join(dir_path, 'cuda_kde.so')
 
 
 # Function for estimating PDF using c based kde
@@ -40,7 +47,8 @@ def kde_c(ndim, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False):
         raise Exception('The length of the bandwidht does not equal to the number of the dimensions!')
 
     # Initialize the c-based shared library
-    dll           = ctypes.CDLL('./kde.so')
+    # dll           = ctypes.CDLL('./kde.so')
+    dll           = ctypes.CDLL(kde_path)
     func          = dll.kde
     func.argtypes = [c_int, c_int, c_int,
                      POINTER(c_double), POINTER(c_double), POINTER(c_double)]
@@ -100,7 +108,8 @@ def kde_cuda(ndim, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False):
         raise Exception('The length of the bandwidht does not equal to the number of the dimensions!')
 
     # Initialize the cuda-based shared library
-    dll           = ctypes.CDLL('./cuda_kde.so')
+    # dll           = ctypes.CDLL('./cuda_kde.so')
+    dll           = ctypes.CDLL(cudakde_path)
     func          = dll.cuda_kde
     func.argtypes = [c_int, c_int, c_int,
                      POINTER(c_double), POINTER(c_double), POINTER(c_double)]

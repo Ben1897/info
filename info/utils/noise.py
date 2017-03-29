@@ -1,10 +1,13 @@
-# Noise generator
-#
-# @Author: Peishi Jiang <Ben1897>
-# @Date:   2017-02-12T14:14:08-06:00
-# @Email:  shixijps@gmail.com
-# @Last modified by:   Ben1897
-# @Last modified time: 2017-02-15T15:53:57-06:00
+"""
+Noise generator.
+
+@Author: Peishi Jiang <Ben1897>
+@Date:   2017-02-12T14:14:08-06:00
+@Email:  shixijps@gmail.com
+@Last modified by:   Ben1897
+@Last modified time: 2017-02-15T15:53:57-06:00
+
+"""
 
 import numpy as np
 

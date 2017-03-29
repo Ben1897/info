@@ -1,36 +1,54 @@
-# A class for generating values from a chaotic logistic network
-#
-# @Author: Peishi Jiang <Peishi>
-# @Date:   2017-02-10T13:36:00-06:00
-# @Email:  shixijps@gmail.com
-# @Last modified by:   Ben1897
-# @Last modified time: 2017-02-16T10:07:50-06:00
+"""
+A class for generating values from a chaotic logistic network.
 
-# Ref: Allison's TIPNets process network manuscript
+@Author: Peishi Jiang <Peishi>
+@Date:   2017-02-10T13:36:00-06:00
+@Email:  shixijps@gmail.com
+@Last modified by:   Ben1897
+@Last modified time: 2017-02-16T10:07:50-06:00
 
-from ..utils.noise import noise
+Ref: Allison's TIPNets process network manuscript
+
+"""
+
 import numpy as np
+from ..utils.noise import noise
 
 
 class Logistic(object):
 
     allowedNoiseTypes = ['exclusive', 'additive', 'multiplicative']
 
-    def __init__(self, n, adjM, lagM, noiseType='additive', noiseDist=None, noisePara=None):
-        '''
+    def __init__(self, n, adjM, lagM, noiseType='additive',
+                 noiseDist=None, noiseOn=None, noisePara=None):
+        """The initial function.
+
         n:         the number of variables [int]
         adjM:      the adjacent matrix [numpy array]
         lagM:      the lag matrix [numpy array]
-        noiseType: additive / multiplicative [string]
+        noiseType: exclusive/ additive / multiplicative [string]
         noiseDist: the distribution of the noise [string]
+        noiseOn:   the 1/0 values for determining whether the noise is used for each variable [numpy array]
         noisePara: the parameters of the noise term [list]
                    1     - variance coefficient [double]
                    2 ... - other parameters [any]
-        '''
+
+        """
         self.n         = n
         self.adjM      = adjM
         self.lagM      = lagM
         self.checkMatrix()
+
+        if noiseOn is None:
+            self.noiseOn = np.zeros(n)
+        else:
+            if len(noiseOn) != self.n:
+                raise Exception('the size of noiseOn should be equal to %d!' % n)
+
+            noiseOnset = np.unique(noiseOn)
+            if not np.in1d(noiseOnset, np.array([0, 1])).all():
+                raise Exception('Values of noiseOn should be from {0, 1}')
+            self.noiseOn = noiseOn
 
         if noiseType not in self.allowedNoiseTypes:
             raise Exception('Unknown noise type %s!' % noiseType)
@@ -41,11 +59,14 @@ class Logistic(object):
         self.initLogistic()
 
     def checkMatrix(self):
-        '''
+        """Check the dimensions of adjM and lagM.
+
         Check whether the dimensions of adjM and lagM are the same and complies
         with the variable number n.
+
         Output: NoneType
-        '''
+
+        """
         nx_adj, ny_adj = self.adjM.shape
         nx_lag, ny_lag = self.lagM.shape
         # Check if adjM and lagM are a square matrix
@@ -63,36 +84,37 @@ class Logistic(object):
         return
 
     def initLogistic(self):
-        '''
-        Initialize the logistic equations.
+        """Initialize the logistic equations.
+
         self.funcs: a list of functions with length self.n
         Output: NoneType.
-        '''
+
+        """
         noiseGenerator = self.noise.generator
 
-        def getFunctionForVar(w, i):
+        def getFunctionForVar(w, non, i):
             k = np.nonzero(w)[0].size
             if k != 0:
                 if self.noiseType == 'additive':
-                    return lambda x: sum([w[i]*logisticEqn(x[i]) for i in range(self.n)]) / k + noiseGenerator()
-                elif self.noiseType == 'exclusive':
-                    return lambda x: sum([w[i]*logisticEqn(x[i]) for i in range(self.n)]) / k
+                    return lambda x: sum([w[i]*logisticEqn(x[i]) for i in range(self.n)]) / k + non*noiseGenerator()
                 elif self.noiseType == 'multiplicative':
-                    return lambda x: sum([w[i]*logisticEqn(x[i]) for i in range(self.n)]) / k + x[i]*noiseGenerator()
+                    return lambda x: sum([w[i]*logisticEqn(x[i]) for i in range(self.n)]) / k + non*x[i]*noiseGenerator()
             else:
-                if self.noiseType == 'additive' or self.noiseType == 'exclusive':
-                    return lambda x: noiseGenerator()
+                if self.noiseType == 'additive':
+                    return lambda x: non*noiseGenerator()
                 elif self.noiseType == 'multiplicative':
-                    return lambda x: x*noiseGenerator()
+                    return lambda x: non*x*noiseGenerator()
 
         # Create a list of functions
-        self.funcs = list(map(getFunctionForVar, self.adjM, range(self.n)))
+        self.funcs = list(map(getFunctionForVar, self.adjM, self.noiseOn, range(self.n)))
 
     def simulate(self, nstep):
-        '''
+        """
         Conduct the simulation given the number of steps nstep.
+
         Output: a numpy array with shape (n, nstep)
-        '''
+
+        """
         maxLag = self.lagM.max()
         ntrash = max(1000, self.lagM.max())
         simul  = np.zeros([self.n, nstep+ntrash])
@@ -115,10 +137,12 @@ class Logistic(object):
         return simul[:, ntrash:]
 
     def getRequiredX(self, prex):
-        '''
+        """
         Get the required previous values based on lagM.
+
         Output: a numpy array with shape (n, n)
-        '''
+
+        """
         x = np.zeros([self.n, self.n])
         for i in range(self.n):
             adj = -self.lagM[i]
@@ -128,9 +152,7 @@ class Logistic(object):
 
 
 def logisticEqn(x):
-    '''
-    The logistic equation
-    '''
+    """The logistic equation."""
     return 4*x*(1-x)
 
 
