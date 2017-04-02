@@ -9,17 +9,17 @@ Several numerical models.
 import numpy as np
 
 
-def fishery_model(N):
+def fishery_model(N, rxx=3.1, rxt=-.3, ryy=2.9, ryt=-.36, cx=.4, cy=.35):
     """
     A standard fishery model system with two non-interacting populations that share common environmental forcing.
 
     Ref: Eqn. (S4) in Sugihara, George, et al. "Detecting causality in complex ecosystems." science 338.6106 (2012): 496-500.
 
     """
-    rxf = lambda x, t: x*(3.1*(1-x))*np.exp(-.3*t)
-    ryf = lambda y, t: y*(2.9*(1-y))*np.exp(-.36*t)
-    xf = lambda x, rx: 0.4*x+max(rx, 0)
-    yf = lambda y, ry: 0.35*y+max(ry, 0)
+    rxf = lambda x, t: x*(rxx*(1-x))*np.exp(rxt*t)
+    ryf = lambda y, t: y*(ryy*(1-y))*np.exp(ryt*t)
+    xf = lambda x, rx: cx*x+max(rx, 0)
+    yf = lambda y, ry: cy*y+max(ry, 0)
 
     trash = 100
     x_set = np.zeros(N+trash)
