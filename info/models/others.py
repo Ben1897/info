@@ -4,9 +4,61 @@ Several numerical models.
 @Author: Peishi Jiang <Peishi>
 @Email:  shixijps@gmail.com
 
+two_species_logistic()
+two_species_logistic_delayed()
+fishery_model()
+Lorenze_model()
+
 """
 
+
 import numpy as np
+
+
+def two_species_logistic(x0, y0, N, rx, ry, bxy, byx):
+    """A coupled two-species nonlinear logistic different system with chaotic dynamics."""
+    x_set = np.zeros(N)
+    y_set = np.zeros(N)
+    x_set[0] = x0
+    y_set[0] = y0
+
+    for i in range(N-1):
+        x_set[i+1] = x_set[i]*(rx-rx*x_set[i]-bxy*y_set[i])
+        y_set[i+1] = y_set[i]*(ry-ry*y_set[i]-byx*x_set[i])
+
+    return x_set, y_set
+
+
+def two_species_logistic_delayed(x0, y0, N, rx, ry, bxy, byx, tau):
+    """A coupled two-species nonlinear logistic difference system with chaotic dynamics with delays."""
+    x_set = np.zeros(N)
+    y_set = np.zeros(N)
+    x_set[0:tau+1] = x0
+    y_set[0:tau+1] = y0
+
+    for i in range(N-1-tau):
+        x_set[i+1+tau] = x_set[i+tau]*(rx-rx*x_set[i+tau]-bxy*y_set[i+tau])
+        y_set[i+1+tau] = y_set[i+tau]*(ry-ry*y_set[i+tau]-byx*x_set[i])
+
+    return x_set, y_set
+
+
+def Lorenze_model(x0, y0, z0, N, dt, sigma, r, b):
+    """The Lorenze model."""
+    x = np.zeros(N)
+    y = np.zeros(N)
+    z = np.zeros(N)
+
+    x[0] = x0
+    y[0] = y0
+    z[0] = z0
+
+    for i in range(N-1):
+        x[i+1] = x[i] + dt*(sigma*(y[i]-x[i]))
+        y[i+1] = y[i] + dt*(-x[i]*z[i] + r*x[i] - y[i])
+        z[i+1] = z[i] + dt*(x[i]*y[i] - b*z[i])
+
+    return x, y, z
 
 
 def fishery_model(N, rxx=3.1, rxt=-.3, ryy=2.9, ryt=-.36, cx=.4, cy=.35):

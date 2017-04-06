@@ -1,16 +1,74 @@
-# A python code for implementing CCM
-#
-# Ref:
-# [1] Sugihara, George, et al. "Detecting causality in complex ecosystems." science 338.6106 (2012): 496-500.
-# [2] Ye, Hao, et al. "Distinguishing time-delayed causal interactions using convergent cross mapping." Scientific reports 5 (2015).
+"""
+A python code for implementing CCM.
+
+Ref:
+[1] Sugihara, George, et al. "Detecting causality in complex ecosystems." science 338.6106 (2012): 496-500.
+[2] Ye, Hao, et al. "Distinguishing time-delayed causal interactions using convergent cross mapping." Scientific reports 5 (2015).
+
+find_embedded_lag()
+ccm()
+extended_ccm()
+
+"""
+
 
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
+from sklearn.metrics import mutual_info_score
+from ..utils.pdf_computer import pdfComputer
+from .info import info
+
+
+def find_embedded_lag(x, lagmax, approach='kde_c', nx=30, ny=30):
+    """Find the best embedded lag tau given a time series based on the average mutual information approach.
+
+    Inputs:
+    x        -- the target variable [ndarray(npt,)]
+    lagmax   -- the maximum lag [int]
+    approach -- the approach used for PDF estimation [str]
+    nx       -- the number of bins in x dimension for PDF estimation
+    ny       -- the number of bins in y dimension for PDF estimation
+    Outputs:
+    tbest  -- the best embedded lag [int]
+    miset  -- the set of the mutual information between x[t] and x[t-tau] [ndarray(lagmax+1,)]
+    tset   -- the set of the embedded lags considered [ndarray(lagmax+1,)]
+
+    """
+    # Create tset
+    tset = np.arange(lagmax+1)
+
+    # Calculate the mutual information for each tau in tset
+    miset = np.zeros(lagmax+1)
+    for tau in tset:
+        if tau == 0:
+            x1, x2 = x, x
+        else:
+            x1, x2 = x[tau:], x[:-tau]
+
+        x_set = np.array([x1, x2]).T
+
+        # Compute the 2D PDF
+        pdfsolver = pdfComputer(ndim=2, approach=approach, bandwidth='silverman')
+        _, pdf_est, _ = pdfsolver.computePDF(x_set, nbins=[nx, ny])
+
+        # Compute the mutual information
+        miset[tau] = info(pdf_est).ixy
+        # miset[tau] = mutual_info_score(x1, x2)
+
+    # Get the tbest  (i.e., the lag having the first minimum mutual information)
+    tbest = 0
+    for tau in tset[1:]:
+        if miset[tau] < miset[tbest]:
+            tbest = tau
+        else:
+            break
+
+    return tbest, miset, tset
 
 
 def ccm(x, y, x_future, y_future, nemb, tau=1, nn=None, scoremethod='corr', filtered=False):
-    '''
-    Implementation of the convergent cross mapping method.
+    """ Implementation of the convergent cross mapping method.
+
     Inputs:
     x           -- the target variable [ndarray(npt,)]
     y           -- the source variable [ndarray(npt,)]
@@ -24,7 +82,8 @@ def ccm(x, y, x_future, y_future, nemb, tau=1, nn=None, scoremethod='corr', filt
     Outputs:
     y_est -- the estimated source variable [ndarray(nptn,)]
     rho  -- the correlation coefficient between the y_est and y [float]
-    '''
+
+    """
     if nn is None:
         nn = nemb + 1
 
@@ -64,14 +123,14 @@ def ccm(x, y, x_future, y_future, nemb, tau=1, nn=None, scoremethod='corr', filt
 
     # Compute the correlation coefficient between y_est and y
     y_true = y_future[ind0:]
-    rho = score(y_est, y_true, method=scoremethod) 
+    rho = score(y_est, y_true, method=scoremethod)
 
     return y_est, rho
 
 
 def extended_ccm(x, y, x_future, y_future, nemb, lag, tau=1, nn=None, filtered=False):
-    '''
-    Implementation of the convergent cross mapping method.
+    """Implementation of the convergent cross mapping method.
+
     Inputs:
     x     -- the target variable [ndarray(npt,)]
     y     -- the source variable [ndarray(npt,)]
@@ -86,7 +145,8 @@ def extended_ccm(x, y, x_future, y_future, nemb, lag, tau=1, nn=None, filtered=F
                 different lag in lagset [ndarray(lag*2+1)]
     rhoympx  -- the correlation coefficients from y mp x in terms of
                 different lag in lagset [ndarray(lag*2+1)]
-    '''
+
+    """
     # TODO: Check whether the maximum lag exceeds the lengths of x and y
     lagset = np.arange(-lag, lag+1, 1, dtype='int')
     lagsetsize = lagset.size
@@ -110,7 +170,7 @@ def extended_ccm(x, y, x_future, y_future, nemb, lag, tau=1, nn=None, filtered=F
             x_future_adj, y_future_adj = x_future, y_future
 
         # Conduct CCM
-        _, rho1 = ccm(x_adj, y_adj, x_future_adj, y_future_adj, nemb, tau, nn, filtered=filtered)  # x[t] xmp y[t+lag] 
+        _, rho1 = ccm(x_adj, y_adj, x_future_adj, y_future_adj, nemb, tau, nn, filtered=filtered)  # x[t] xmp y[t+lag]
         _, rho2 = ccm(y_adj, x_adj, y_future_adj, x_future_adj, nemb, tau, nn, filtered=filtered)  # y[t] xmp x[t-lag]
 
         rhoxmpy[i] = rho1

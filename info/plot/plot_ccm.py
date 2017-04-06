@@ -4,8 +4,10 @@ A set of functions for plotting results from CCM.
 @Author: Peishi Jiang <Ben1897>
 @Email:  shixijps@gmail.com
 
+plot_ccm_with_sst()
 plot_ccm_with_trajectory()
 plot_ccm_est_obs_xy()
+plot_ccm_xy()
 plot_ccm_3d_xy()
 plot_extended_ccm_xy()
 plot_extended_ccm_3d()
@@ -18,6 +20,30 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.axes3d import Axes3D, get_test_data
 from matplotlib import cm
 import matplotlib.gridspec as gridspec
+
+
+def plot_ccm_with_sst(L_set, result, rho, upper, lower, title='None'):
+    """Plot the CCM skills in terms of different library lengths along with the sst results."""
+
+    t = result == True
+    f = result == False
+
+    plt.figure()
+    plt.rcParams["figure.figsize"] = (10, 6)
+    gs = gridspec.GridSpec(1, 1)
+    gs.update(wspace=0.4, hspace=0.4)
+
+    ax = plt.subplot(gs[0, 0])
+    ax.plot(L_set, rho, 'b', label='True CCM skill')
+    ax.plot(L_set, upper, 'k--', label='95%')
+    ax.plot(L_set, lower, 'k.-', label='5%')
+    ax.scatter(L_set[t], np.ones(t.sum())+.2, color='red', label='MI SST True')
+    ax.scatter(L_set[f], np.ones(f.sum())+.2, color='blue', label='MI SST Blue')
+    ax.set_xlabel('Library length')
+    ax.set_ylabel('CCM skill')
+    ax.set_title(title)
+    ax.set_ylim([-.5, 1.4])
+    ax.legend(loc='lower right')
 
 
 def plot_ccm_with_trajectory(x_set, y_set, lag, L_set, xmpy, ympx, rhoset):
@@ -80,8 +106,32 @@ def plot_ccm_est_obs_xy(x_obs, x_est, y_obs, y_est, rhox, rhoy):
     ax.set_title('rho: %.2f' % rhox)
 
 
+def plot_ccm_xy(xmpy, ympx, xv, yv, xlabel, ylabel):
+    """Plot the CCM skills for both xmpy and ympx in terms of two parameters xlabel and ylabel in contour plots."""
+    plt.rcParams["figure.figsize"] = (24, 8)
+
+    gs = gridspec.GridSpec(1, 2)
+    gs.update(wspace=0.4, hspace=0.4)
+
+    ax = plt.subplot(gs[0, 0])
+    cs = ax.contourf(xv, yv, xmpy, cmap=cm.coolwarm,
+                         linewidth=0, antialiased=False)
+    plt.colorbar(cs, ax=ax)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title('xmpy')
+
+    ax = plt.subplot(gs[0, 1])
+    cs = ax.contourf(xv, yv, ympx, cmap=cm.coolwarm,
+                         linewidth=0, antialiased=False)
+    plt.colorbar(cs, ax=ax)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title('ympx')
+
+
 def plot_ccm_3d_xy(xmpy, ympx, xv, yv, xlabel, ylabel):
-    """Plot the CCM skills for both xmpy and ympx in terms of two parameters xlabel and ylabel."""
+    """Plot the CCM skills for both xmpy and ympx in terms of two parameters xlabel and ylabel in 3D plots."""
     plt.rcParams["figure.figsize"] = (24, 8)
 
     gs = gridspec.GridSpec(1, 2)

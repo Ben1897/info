@@ -1,17 +1,20 @@
-# A class for computing multi-dimensional PDF by using scikit-learn kernel density function
-#
-# For the fixed bin method, the numpy histogram, histogram2d and histogramdd are used.
-# For KDE, the scikit-learn's KernelDensity function is used.
-#
-# Note:
-# A better illustration of KDE implementation in python can be refered to
-# https://jakevdp.github.io/blog/2013/12/01/kernel-density-estimation/
-#
-# @Author: Peishi Jiang <Ben1897>
-# @Date:   2017-02-13T11:25:34-06:00
-# @Email:  shixijps@gmail.com
-# @Last modified by:   Ben1897
-# @Last modified time: 2017-03-07T21:36:17-06:00
+"""
+A class for computing multi-dimensional PDF by using scikit-learn kernel density function.
+
+For the fixed bin method, the numpy histogram, histogram2d and histogramdd are used.
+For KDE, the scikit-learn's KernelDensity function is used.
+
+Note:
+A better illustration of KDE implementation in python can be refered to
+https://jakevdp.github.io/blog/2013/12/01/kernel-density-estimation/
+
+@Author: Peishi Jiang <Ben1897>
+@Email:  shixijps@gmail.com
+
+class pdfComputer()
+
+"""
+
 
 import numpy as np
 from sklearn.model_selection import GridSearchCV
@@ -19,6 +22,7 @@ from sklearn.neighbors.kde import KernelDensity
 import time
 
 from .kdetoolkit import kde_c, kde_cuda, kde_sklearn
+
 
 # data types
 float64 = 'float64'
