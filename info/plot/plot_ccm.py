@@ -22,6 +22,21 @@ from matplotlib import cm
 import matplotlib.gridspec as gridspec
 
 
+def plot_ccm(L_set, xmpy, ympx, rhoset):
+    """ Plot CCM results in terms of different library lengths."""
+    plt.rcParams["figure.figsize"] = (10, 8)
+    gs = gridspec.GridSpec(1, 1)
+
+    ax = plt.subplot(gs[0, 0])
+    ax.plot(L_set, xmpy, 'b', label='x xmp y')
+    ax.plot(L_set, ympx, 'r', label='y xmp x')
+    ax.plot(L_set, rhoset, 'k', label='cross-correlation')
+    ax.set_xlabel('Length of the time series')
+    ax.set_ylabel('Correlation coefficient')
+    ax.set_ylim([-1, 1])
+    ax.legend(loc='lower right')
+
+
 def plot_ccm_with_sst(L_set, result, rho, upper, lower, title='None'):
     """Plot the CCM skills in terms of different library lengths along with the sst results."""
 
@@ -106,7 +121,7 @@ def plot_ccm_est_obs_xy(x_obs, x_est, y_obs, y_est, rhox, rhoy):
     ax.set_title('rho: %.2f' % rhox)
 
 
-def plot_ccm_xy(xmpy, ympx, xv, yv, xlabel, ylabel):
+def plot_ccm_xy(xmpy, ympx, extent, xlabel, ylabel):
     """Plot the CCM skills for both xmpy and ympx in terms of two parameters xlabel and ylabel in contour plots."""
     plt.rcParams["figure.figsize"] = (24, 8)
 
@@ -114,16 +129,20 @@ def plot_ccm_xy(xmpy, ympx, xv, yv, xlabel, ylabel):
     gs.update(wspace=0.4, hspace=0.4)
 
     ax = plt.subplot(gs[0, 0])
-    cs = ax.contourf(xv, yv, xmpy, cmap=cm.coolwarm,
-                         linewidth=0, antialiased=False)
+    cs = ax.imshow(xmpy, extent=extent, aspect='auto',
+                   cmap=cm.jet, interpolation='bilinear')
+    # cs = ax.contourf(xv, yv, xmpy, cmap=cm.jet,
+    #                      linewidth=0, antialiased=False)
     plt.colorbar(cs, ax=ax)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_title('xmpy')
 
     ax = plt.subplot(gs[0, 1])
-    cs = ax.contourf(xv, yv, ympx, cmap=cm.coolwarm,
-                         linewidth=0, antialiased=False)
+    cs = ax.imshow(ympx, extent=extent, aspect='auto',
+                   cmap=cm.jet, interpolation='bilinear')
+    # cs = ax.contourf(xv, yv, ympx, cmap=cm.jet,
+                         # linewidth=0, antialiased=False)
     plt.colorbar(cs, ax=ax)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
@@ -212,7 +231,7 @@ def plot_extended_ccm_xy_withmi(lagset, rhoxmpy, rhoympx, rhoxy, mirxy, mixy):
     ax.plot(lagset, rhoxy, 'k', label='rho(x, y)')
     ax.set_xlabel('Lag')
     ax.set_ylabel('Correlation Coefficient')
-    ax.set_ylim([-.5, 1.1])
+    ax.set_ylim([-1.1, 1.1])
     ax.set_title('Rho[x(t), y(t+Lag)]')
 
 
