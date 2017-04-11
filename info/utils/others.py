@@ -5,6 +5,10 @@ A set of utility functions.
 @Email:  shixijps@gmail.com
 
 corrcoefs()
+butter_fiter()
+aggregate()
+interpolate_nan()
+parse_SFP()
 read_SFPmatfile()
 convert_matlabdatenum()
 
@@ -13,6 +17,7 @@ convert_matlabdatenum()
 import numpy as np
 import scipy.io as sio
 import datetime as dt
+from scipy.signal import butter, lfilter
 
 
 def corrcoefs(x, y, lagset):
@@ -34,6 +39,18 @@ def corrcoefs(x, y, lagset):
     return rhoset
 
 
+def butter_filter(data, N, fs, fc, btype='high'):
+    """Filter the data by using the Butterworth filter."""
+    # Get the relative cutoff frequency
+    wn = fc/(.5*fs)
+
+    # Filter the data
+    b, a = butter(N, wn, btype=btype)
+    filtered = lfilter(b, a, data)
+
+    return filtered
+
+
 def aggregate(data, interval, method='accumulate'):
     """Aggregate the data given the interval and the aggregation method."""
     # Get the size of the aggregated data set
@@ -44,14 +61,7 @@ def aggregate(data, interval, method='accumulate'):
     datat = np.zeros(sizet)
 
     # Interpolate the nan values if any
-    nans = np.isnan(data)
-    if nans.any():
-        nanloc = np.argwhere(nans).flatten()
-        othloc = np.argwhere(~nans).flatten()
-        othval = data[othloc]
-        # print nanloc, othloc, othval
-        nanval = np.interp(nanloc, xp=othloc, fp=othval)
-        data[nans] = nanval
+    data = interpolate_nan(data)
 
     # Aggregation
     for i in range(sizet):
@@ -62,6 +72,19 @@ def aggregate(data, interval, method='accumulate'):
             datat[i] = d_temp.mean()
 
     return datat
+
+
+def interpolate_nan(data):
+    """Interpolate nan values by using numpy interp method."""
+    nans = np.isnan(data)
+    if nans.any():
+        nanloc = np.argwhere(nans).flatten()
+        othloc = np.argwhere(~nans).flatten()
+        othval = data[othloc]
+        nanval = np.interp(nanloc, xp=othloc, fp=othval)
+        data[nans] = nanval
+
+    return data
 
 
 def parse_SFP(filepath='./data/SFP2_AllData.mat'):
