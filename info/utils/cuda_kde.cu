@@ -87,8 +87,8 @@ double *cuda_kde(int nvar, int Nt, int No, double *bd, double *coordo, double *c
   double *d_coordo, *d_coordt;       // the coordo and coordt in GPU memory
   double *d_bd;                      // the bd in GPU memory
   // double d_bd, d_No;
-  double start = get_time();
-  double stop;
+  /* double start = get_time(); */
+  /* double stop; */
 
   // Allocate the host memory to pdfset
   pdfset = (double*)malloc(Nt*sizeof(double));
@@ -122,8 +122,8 @@ double *cuda_kde(int nvar, int Nt, int No, double *bd, double *coordo, double *c
   cudaFree(d_coordt);
   cudaFree(d_bd);
 
-  stop = get_time();
-  printf("CUDA time usage= %15.12f\n", stop - start);
+  /* stop = get_time(); */
+  /* printf("CUDA time usage= %15.12f\n", stop - start); */
 
   // int c = 0;
   // int c2 = 0;
