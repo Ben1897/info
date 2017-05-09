@@ -17,13 +17,14 @@ pdfsolver = pdfComputer(ndim, approach=approach, bandwidth='silverman')
 # 2D normal distribution #
 ##########################
 n = 10000
-nbins = [10, 10]
+nbins = [10, 12]
 mean = [1, 2]
 cov = [[1, .5], [.5, 1]]
 
 # Generate the data and calculate the sampled PDF
 data = np.random.multivariate_normal(mean, cov, n)
 t, pdf, coord = pdfsolver.computePDF(data, nbins)
+print pdf.shape
 dx = coord[0][1] - coord[0][0]
 dy = coord[1][1] - coord[1][0]
 
