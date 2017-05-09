@@ -8,6 +8,8 @@ two_species_logistic()
 two_species_logistic_delayed()
 fishery_model()
 Lorenze_model()
+common_driver_linear()
+common_driver_nonlinear()
 
 """
 
@@ -105,3 +107,57 @@ def fishery_model(N, rxx=3.1, rxt=-.3, ryy=2.9, ryt=-.36, cx=.4, cy=.35):
     t_set[-1] = np.random.normal()
 
     return x_set[trash:], y_set[trash:], t_set[trash:]
+
+
+def common_driver_linear(N, cwx, cwy, cxz, cyz, sw=1, sy=1, sx=1, sz=1):
+    '''
+    A linear model representing two causes induced by a common driver.
+    w(t) = ew
+    y(t) = cwy*w(t-1) + ey
+    x(t) = cwx*w(t-1) + ex
+    z(t) = cxz*x(t-1) + cyz*y(t-1) + ez
+    where ew, ey, ex, ez are white noises
+    '''
+    ew = lambda: np.random.normal(0, sw, 1)
+    ey = lambda: np.random.normal(0, sy, 1)
+    ex = lambda: np.random.normal(0, sx, 1)
+    ez = lambda: np.random.normal(0, sz, 1)
+
+    w, x, y, z = np.zeros(N+2), np.zeros(N+2), np.zeros(N+2), np.zeros(N+2)
+
+    w[0] = ew(); w[1] = ew()
+    x[1] = cwx*w[0] + ex(); y[1] = cwy*w[0] + ey()
+    for i in range(2, N+2):
+        w[i] = ew()
+        y[i] = cwy*w[i-1] + ey()
+        x[i] = cwx*w[i-1] + ex()
+        z[i] = cxz*x[i-1] + cyz*y[i-1] + ez()
+
+    return w[2:], x[2:], y[2:], z[2:]
+
+
+def common_driver_nonlinear(N, cwx, cwy, cz, sw=1, sy=1, sx=1, sz=1):
+    '''
+    A nonlinear model representing two causes induced by a common driver.
+    w(t) = ew
+    y(t) = cwy*w(t-1) + ey
+    x(t) = cwx*w(t-1) + ex
+    z(t) = cz*x(t-1)*y(t-1) + ez
+    where ew, ey, ex, ez are white noises
+    '''
+    ew = lambda: np.random.normal(0, sw, 1)
+    ey = lambda: np.random.normal(0, sy, 1)
+    ex = lambda: np.random.normal(0, sx, 1)
+    ez = lambda: np.random.normal(0, sz, 1)
+
+    w, x, y, z = np.zeros(N+2), np.zeros(N+2), np.zeros(N+2), np.zeros(N+2)
+
+    w[0] = ew(); w[1] = ew()
+    x[1] = cwx*w[0] + ex(); y[1] = cwy*w[0] + ey()
+    for i in range(2, N+2):
+        w[i] = ew()
+        y[i] = cwy*w[i-1] + ey()
+        x[i] = cwx*w[i-1] + ex()
+        z[i] = cz*x[i-1]*y[i-1] + ez()
+
+    return w[2:], x[2:], y[2:], z[2:]

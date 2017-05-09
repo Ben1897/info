@@ -83,7 +83,9 @@ class pdfComputer(object):
             coords -- [a numpy array with shape (ndim,)]
         '''
         # Get the ndim value in ndim is 'm'
+        usePDFmd = False
         if self.ndim == 'm':
+            usePDFmd = True
             self.ndim = data.shape[1]
         # Check whether the row dimension of data equals to ndim
         if data.shape[1] != self.ndim:
@@ -124,14 +126,14 @@ class pdfComputer(object):
             return time.time()-t0, pdf, self.coords
 
         # Computer the PDF
+        if usePDFmd:  # if the user would like to use computePDFmd function
+            return self.computePDFmd(data, nbins)
         if self.ndim == 1:
             return self.computePDF1d(data, nbins)
         elif self.ndim == 2:
             return self.computePDF2d(data, nbins)
         elif self.ndim == 3:
             return self.computePDF3d(data, nbins)
-        elif self.ndim == 'm':
-            return self.computePDFmd(data, nbins)
 
     def computePDFmd(self, data, nbins):
         '''
@@ -148,6 +150,7 @@ class pdfComputer(object):
         ndim    = self.ndim
         coords  = self.coords
         estimator = self.estimator
+        para   = self.approachPara.copy()
 
         t0 = time.time()
 
@@ -159,13 +162,15 @@ class pdfComputer(object):
 
         # Generate the coordinates where pdfs are estimated with shape (Nt, ndim )
         coord  = np.meshgrid(*coords, indexing='ij')
-        coordt = np.array(coord).reshape(ndim, Nt)
+        coordt = np.array(coord).reshape(ndim, Nt).T
 
         # Get the band width value given the band width type
         if isinstance(para['bandwidth'], str):
             bd = self.computeBandWidth(data, para['bandwidth'])
 
+        # Estimate PDF
         pdf = estimator(ndim, bd, Nt=Nt, No=npts, coordo=data, coordt=coordt, dtype=float64)
+        pdf = pdf.reshape(nbins)
 
         # Normalize pdf again in case there is slice error
         pdf = pdf/pdf.sum()

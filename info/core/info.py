@@ -20,20 +20,18 @@ from scipy.stats import entropy
 
 class info(object):
 
-    def __init__(self, pdfs, base=2, st=False):
+    def __init__(self, pdfs, base=2):
         '''
         Input:
         pdf  -- a numpy array with ndim dimensions each of which has element nsample
-               note: ndim in [1, 2, 3]
+                note: ndim in the order of [1, 2, 3]
+                with shape (nsample1, nsample2, nsample3,...)
         base -- the logrithmatic base (the default is 2) [float/int]
-        st   -- whether conduct the significance test (only for mutual information in 2D) [boolean]
         '''
         self.base = base
 
         # Check the number of variables is larger than 3 (i.e., ndim > 3)
         ndim = np.size(pdfs.shape)
-        if ndim > 3 or ndim < 1:
-            raise Exception('The number of variables should be less than or equal to 3.')
         self.ndim = ndim
 
         # 1D
@@ -42,11 +40,15 @@ class info(object):
 
         # 2D
         if self.ndim == 2:
-            self.__computeInfo2D(pdfs, st)
+            self.__computeInfo2D(pdfs)
 
         # 3D
         if self.ndim == 3:
             self.__computeInfo3D(pdfs)
+
+        # ND
+        if self.ndim > 3:
+            self.__computeInfoMD(pdfs)
 
         # Assemble all the information values into a Pandas series format
         self.__assemble()
@@ -56,12 +58,11 @@ class info(object):
         Compute H(X)
         Input:
         pdfs -- a numpy array with shape (nx,)
-        st   -- whether conduct the significance test (only for mutual information) [boolean]
         Output: NoneType
         '''
         self.hx = entropy(pdfs, base=self.base)
 
-    def __computeInfo2D(self, pdfs, st=False):
+    def __computeInfo2D(self, pdfs):
         '''
         Compute H(X), H(Y), H(X|Y), H(Y|X), I(X;Y)
         Input:
@@ -78,8 +79,8 @@ class info(object):
         self.hy = entropy(ypdfs, base=self.base)  # H(Y)
 
         # Compute H(X|Y), H(Y|X)
-        self.hyx = computeConditionalInfo(xpdfs, ypdfs, pdfs, base=2)  # H(Y|X)
-        self.hxy = computeConditionalInfo(ypdfs, xpdfs, pdfs.T, base=2)  # H(X|Y)
+        self.hy_x = computeConditionalInfo(xpdfs, ypdfs, pdfs, base=2)  # H(Y|X)
+        self.hx_y = computeConditionalInfo(ypdfs, xpdfs, pdfs.T, base=2)  # H(X|Y)
         # self.hxy = computeConditionalInfo_old(ypdfs, xpdfs_y.T, base=self.base)  # H(X|Y)
         # self.hyx = computeConditionalInfo_old(xpdfs, ypdfs_x, base=self.base)  # H(Y|X)
 
@@ -98,15 +99,6 @@ class info(object):
         nx, ny, nz = pdfs.shape
         xpdfs, ypdfs, zpdfs    = np.sum(pdfs, axis=(1,2)), np.sum(pdfs, axis=(0,2)), np.sum(pdfs, axis=(0,1))  # p(x), p(y), p(z)
         xypdfs, yzpdfs, xzpdfs = np.sum(pdfs, axis=(2)), np.sum(pdfs, axis=(0)), np.sum(pdfs, axis=(1))  # p(x,y), p(y,z), p(x,z)
-        # xypdfs_z = np.nan_to_num(pdfs / np.tile(zpdfs[np.newaxis, np.newaxis, :], (nx, ny, 1)))  # p(x,y|z)
-        # yzpdfs_x = np.nan_to_num(pdfs / np.tile(xpdfs[:, np.newaxis, np.newaxis], (1, ny, nz)))  # p(y,z|x)
-        # xzpdfs_y = np.nan_to_num(pdfs / np.tile(ypdfs[np.newaxis, :, np.newaxis], (nx, 1, nz)))  # p(x,z|y)
-        # xpdfs_yz = np.nan_to_num(pdfs / np.tile(yzpdfs[np.newaxis, :, :], (nx, 1, 1)))  # p(x|y,z)
-        # ypdfs_xz = np.nan_to_num(pdfs / np.tile(xzpdfs[:, np.newaxis, :], (1, ny, 1)))  # p(y|x,z)
-        # zpdfs_xy = np.nan_to_num(pdfs / np.tile(xypdfs[:, :, np.newaxis], (1, 1, nz)))  # p(z|y,x)
-        # xpdfs_y, xpdfs_z = np.sum(xzpdfs_y, axis=2), np.sum(xypdfs_z, axis=1)  # p(x|y), p(x|z)
-        # ypdfs_x, ypdfs_z = np.sum(yzpdfs_x, axis=2), np.sum(xypdfs_z, axis=0)  # p(y|x), p(y|z)
-        # zpdfs_x, zpdfs_y = np.sum(yzpdfs_x, axis=1), np.sum(xzpdfs_y, axis=0)  # p(z|x), p(z|y)
 
         # Compute H(X), H(Y) and H(Z)
         self.hx = entropy(xpdfs, base=self.base)  # H(X)
@@ -121,7 +113,7 @@ class info(object):
         self.iyz_x = computeConditionalMutualInformation(pdfs, option=1, base=2.)  # I(Y,Z|X)
         self.ixz_y = computeConditionalMutualInformation(pdfs, option=2, base=2.)  # I(X,Z|Y)
         # self.tyz = computeTransferEntropy(xpdfs, xzpdfs, xypdfs, pdfs, base=self.base)  # T(Y->Z|X)
-        # self.txz = computeTransferEntropy(ypdfs, xypdfs, yzpdfs, pdfs, base=self.base)  # T(X->Z|Y)
+        # self.txz = computeTransferEntropy(ypdfs, xypdfs, yzpdfs, pdfs, base=self.base)  # T(X->Z|Y).hx_w  = self.hxw - self.hw                # H(X|W)
         # self.tyz = computeTransferEntropy_old(zpdfs_x, zpdfs_xy, pdfs, base=self.base)
 
         # Compute II (= I(X;Y;Z))
@@ -140,6 +132,63 @@ class info(object):
         self.uxz = self.ixz - self.r  # U(X;Z) (Eq.(4) in Allison)
         self.uyz = self.iyz - self.r  # U(Y;Z) (Eq.(5) in Allison)
 
+    def __computeInfoMD(self, pdfs):
+        '''
+        The function is aimed to compute the momentary interaction information at two paths and
+        its corresponding conditional partial inforamtion decomposition.
+        Compute I(X;Y|Z,W), I(X;Y|W), H(X|W), H(Y|W), I(X;Z|W), I(Y;Z|W)
+                II(X;Z;Y|W) = I(X;Y|Z,W) - I(X;Y|W)
+                Isc = I(X;Y|W) / min[H(X|W), H(Y|W)]
+                RMMIc = min[I(X;Z|W), I(Y;Z|W)]
+                Rminc = 0 if II > 0 else -II
+                Rc = Rminc + Isc*(RMMIc - Rminc)
+                Sc = II + Rc
+                Uxc = I(X;Z|W) - Rc
+                Uyc = I(Y:Z|W) - Rc
+        Input:
+        pdfs --  a numpy array with shape (nx, ny, nz, nw1, nw2, nw3,...)
+        Output: NoneType
+        '''
+        # Compute the pdfs
+        shapes = pdfs.shape
+        ndims  = len(shapes)
+        nx, ny, nz, nws = shapes[0], shapes[1], shapes[2], shapes[3:]
+        wpdfs = np.sum(pdfs, axis=(0,1,2))   # p(w)
+        xwpdfs, ywpdfs, zwpdfs = np.sum(pdfs, axis=(1,2)), np.sum(pdfs, axis=(0,2)), np.sum(pdfs, axis=(0,1))  # p(x,w), p(y,w), p(z,w)
+        xywpdfs, yzwpdfs, xzwpdfs = np.sum(pdfs, axis=(2)), np.sum(pdfs, axis=(0)), np.sum(pdfs, axis=(1))  # p(x,y,w), p(y,z,w), p(x,z,w)
+
+        # Compute all the entropies
+        self.hw    = entropy(wpdfs.flatten(), base=self.base)    # H(W)
+        self.hxw   = entropy(xwpdfs.flatten(), base=self.base)   # H(X,W)
+        self.hyw   = entropy(ywpdfs.flatten(), base=self.base)   # H(Y,W)
+        self.hzw   = entropy(zwpdfs.flatten(), base=self.base)   # H(Z,W)
+        self.hxyw  = entropy(xywpdfs.flatten(), base=self.base)  # H(X,Y,W)
+        self.hyzw  = entropy(yzwpdfs.flatten(), base=self.base)  # H(Y,Z,W)
+        self.hxzw  = entropy(xzwpdfs.flatten(), base=self.base)  # H(X,Z,W)
+        self.hxyzw = entropy(pdfs.flatten(), base=self.base)     # H(X,Y,Z,W)
+        self.hx_w  = self.hxw - self.hw                # H(X|W)
+        self.hy_w  = self.hyw - self.hw                # H(Y|W)
+
+        # Compute all the conditional mutual information
+        self.ixy_w = self.hxw + self.hyw - self.hw - self.hxyw  # I(X;Y|W)
+        self.ixz_w = self.hxw + self.hzw - self.hw - self.hxzw  # I(X;Z|W)
+        self.iyz_w = self.hyw + self.hzw - self.hw - self.hyzw  # I(Y;Z|W)
+
+        # Compute MIIT
+        self.ii = self.hxyw + self.hyzw + self.hxzw + self.hw - self.hxw - self.hyw - self.hzw - self.hxyzw
+        self.itot = self.ii + self.ixz_w + self.iyz_w
+
+        # Compute R(Z;X,Y|W)
+        self.rmmi    = np.min([self.ixz_w, self.iyz_w])                # RMMIc
+        self.isource = self.ixy_w / np.min([self.hxw, self.hyw])       # Isc
+        self.rmin    = -self.ii if self.ii < 0 else 0                  # Rminc
+        self.r       = self.rmin + self.isource*(self.rmmi-self.rmin)  # Rc
+
+        # Compute S(Z;X,Y|W), U(Z;X|W) and U(Z;Y|W)
+        self.s = self.r + self.ii       # Sc
+        self.uxz = self.ixz_w - self.r  # U(X;Z|W)
+        self.uyz = self.iyz_w - self.r  # U(Y;Z|W)
+
     def __assemble(self):
         '''
         Assemble all the information values into a Pandas series format
@@ -148,15 +197,24 @@ class info(object):
         if self.ndim == 1:
             self.allInfo = pd.Series(self.hx, index=['H(X)'])
         elif self.ndim == 2:
-            self.allInfo = pd.Series([self.hx, self.hy, self.hxy, self.hyx, self.ixy],
+            self.allInfo = pd.Series([self.hx, self.hy, self.hx_y, self.hy_x, self.ixy],
                                      index=['H(X)', 'H(Y)', 'H(X|Y)', 'H(Y|X)', 'I(X;Y)'])
         elif self.ndim == 3:
-            self.allInfo = pd.Series([self.hx, self.hy, self.ixz, self.iyz, self.ixy,
-                                     self.iyz_x, self.ixz_y, self.ii, self.itot, self.rmin, self.isource, self.rmmi,
-                                     self.r, self.s, self.uxz, self.uyz],
-                                     index=['H(X)', 'H(Y)', 'I(X;Z)', 'I(Y;Z)', 'I(X;Y)',
-                                            'I(Y,Z|X)', 'I(X,Z|Y)', 'II', 'Itotal', 'Rmin', 'Isource', 'RMMI',
-                                            'R(Z;Y,X)', 'S(Z;Y,X)', 'U(Z,X)', 'U(Z,Y)'])
+             self.allInfo = pd.Series([self.ii, self.itot, self.r, self.s, self.uxz, self.uyz,
+                                       self.rmin, self.isource, self.rmmi],
+                                     index=['II', 'Itotal', 'R(Z;Y,X)', 'S(Z;Y,X)', 'U(Z,X)', 'U(Z,Y)',
+                                            'Rmin', 'Isource', 'RMMI'])
+            # self.allInfo = pd.Series([self.hx, self.hy, self.ixz, self.iyz, self.ixy,
+            #                          self.iyz_x, self.ixz_y, self.ii, self.itot, self.rmin, self.isource, self.rmmi,
+            #                          self.r, self.s, self.uxz, self.uyz],
+            #                          index=['H(X)', 'H(Y)', 'I(X;Z)', 'I(Y;Z)', 'I(X;Y)',
+            #                                 'I(Y,Z|X)', 'I(X,Z|Y)', 'II', 'Itotal', 'Rmin', 'Isource', 'RMMI',
+            #                                 'R(Z;Y,X)', 'S(Z;Y,X)', 'U(Z,X)', 'U(Z,Y)'])
+        else:
+            self.allInfo = pd.Series([self.ii, self.itot, self.r, self.s, self.uxz, self.uyz,
+                                      self.rmmi, self.isource, self.rmin],
+                                     index=['MIIT', 'Itotal', 'Rc', 'Sc', 'Uxc', 'Uyc',
+                                            'RMMIc', 'Isc', 'Rminc'])
 
 
 def computeConditionalInfo(xpdfs, ypdfs, xypdfs, base=2):
