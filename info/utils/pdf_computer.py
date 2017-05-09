@@ -82,6 +82,9 @@ class pdfComputer(object):
             pdf    -- [an numpy array with shape (nsample_dim1, nsample_dim2, ...)]
             coords -- [a numpy array with shape (ndim,)]
         '''
+        # Get the ndim value in ndim is 'm'
+        if self.ndim == 'm':
+            self.ndim = data.shape[1]
         # Check whether the row dimension of data equals to ndim
         if data.shape[1] != self.ndim:
             raise Exception('The dimension of the provided data does not equal to ndim!')
@@ -127,6 +130,47 @@ class pdfComputer(object):
             return self.computePDF2d(data, nbins)
         elif self.ndim == 3:
             return self.computePDF3d(data, nbins)
+        elif self.ndim == 'm':
+            return self.computePDFmd(data, nbins)
+
+    def computePDFmd(self, data, nbins):
+        '''
+        Compute the multi-dimensional PDF based on KDE.
+        Input:
+            data  -- the data [numpy array with shape (npoints, ndim)]
+            nbins -- the number of bins in each dimension [list]
+        Output:
+            time   -- [float]
+            pdf    -- [an numpy array with shape (nsample_dim1, nsample_dim2, ...)]
+            coords -- [a numpy array with shape (ndim,)]
+        '''
+        npts    = self.npts
+        ndim    = self.ndim
+        coords  = self.coords
+        estimator = self.estimator
+
+        t0 = time.time()
+
+        # initialize PDF set
+        pdf = np.zeros(nbins, dtype=float64)
+
+        # Calculate the number of estimated points
+        Nt = reduce((lambda x, y: x*y), nbins)
+
+        # Generate the coordinates where pdfs are estimated with shape (Nt, ndim )
+        coord  = np.meshgrid(*coords, indexing='ij')
+        coordt = np.array(coord).reshape(ndim, Nt)
+
+        # Get the band width value given the band width type
+        if isinstance(para['bandwidth'], str):
+            bd = self.computeBandWidth(data, para['bandwidth'])
+
+        pdf = estimator(ndim, bd, Nt=Nt, No=npts, coordo=data, coordt=coordt, dtype=float64)
+
+        # Normalize pdf again in case there is slice error
+        pdf = pdf/pdf.sum()
+
+        return time.time() - t0, pdf, self.coords
 
     def computePDF1d(self, data, nbins):
         '''
