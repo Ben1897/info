@@ -1,0 +1,292 @@
+"""
+A set of functions for plotting results from SUR partitioning.
+
+@Author: Peishi Jiang <Ben1897>
+@Email:  shixijps@gmail.com
+
+plot_sr_comparison3d()
+plot_sr_prop_comparison3d()
+plot_sur_prop()
+plot_ii()
+plot_sr_comparison1d()
+plot_sur_1d()
+plot_ii1d()
+
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+from mpl_toolkits.mplot3d.axes3d import Axes3D
+
+
+def plot_sr_comparison3d(xv, yv, rc, r, sc, s, xlabel, ylabel, vmin=0, vmax=1):
+    '''Plot the synergistic and redundant information from both II and MIIT in 3d format.'''
+    plt.figure(figsize=(20, 16))
+    gs = gridspec.GridSpec(2, 2)
+    gs.update(wspace=.4, hspace=.4)
+
+    ax = plt.subplot(gs[0,0], projection='3d')
+    ax.view_init(20, 225)
+    cs = ax.plot_surface(xv, yv, rc, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
+                         linewidth=0, antialiased=False)
+    plt.colorbar(cs, ax=ax)
+    ax.set_zlim([-.1, 1.1])
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title('Redundant Info (w/ cond\'t)')
+
+    ax = plt.subplot(gs[0,1], projection='3d')
+    ax.view_init(20, 225)
+    cs = ax.plot_surface(xv, yv, r, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
+                    linewidth=0, antialiased=False)
+    plt.colorbar(cs, ax=ax)
+    ax.set_zlim([-.1, 1.1])
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title('Redundant Info (w/o cond\'t)')
+
+    ax = plt.subplot(gs[1,0], projection='3d')
+    ax.view_init(20, 225)
+    cs = ax.plot_surface(xv, yv, sc, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
+                         linewidth=0, antialiased=False)
+    plt.colorbar(cs, ax=ax)
+    ax.set_zlim([-.1, 1.1])
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title('Synergistic Info (w/ cond\'t)')
+
+    ax = plt.subplot(gs[1,1], projection='3d')
+    ax.view_init(20, 225)
+    cs = ax.plot_surface(xv, yv, s, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
+                         linewidth=0, antialiased=False)
+    plt.colorbar(cs, ax=ax)
+    ax.set_zlim([-.1, 1.1])
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title('Synergistic Info (w/o cond\'t)')
+
+
+def plot_sr_prop_comparison3d(xv, yv, rc, r, sc, s, xlabel, ylabel, vmin=0, vmax=1):
+    '''Plot the proportion of the synergistic and redundant information from both II and MIIT in 3d format.'''
+    plt.figure(figsize=(20, 16))
+    gs = gridspec.GridSpec(2, 2)
+    gs.update(wspace=.4, hspace=.4)
+
+    ax = plt.subplot(gs[0,0], projection='3d')
+    ax.view_init(20, 225)
+    cs = ax.plot_surface(xv, yv, rc, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
+                         linewidth=0, antialiased=False)
+    plt.colorbar(cs, ax=ax)
+    ax.set_zlim([-.1, 1.1])
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title('(Proportion) Redundant Info (w/ cond\'t)')
+
+    ax = plt.subplot(gs[0,1], projection='3d')
+    ax.view_init(20, 225)
+    cs = ax.plot_surface(xv, yv, r, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
+                    linewidth=0, antialiased=False)
+    plt.colorbar(cs, ax=ax)
+    ax.set_zlim([-.1, 1.1])
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title('(Proportion) Redundant Info (w/o cond\'t)')
+
+    ax = plt.subplot(gs[1,0], projection='3d')
+    ax.view_init(20, 225)
+    cs = ax.plot_surface(xv, yv, sc, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
+                         linewidth=0, antialiased=False)
+    plt.colorbar(cs, ax=ax)
+    ax.set_zlim([-.1, 1.1])
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title('(Proportion) Synergistic Info (w/ cond\'t)')
+
+    ax = plt.subplot(gs[1,1], projection='3d')
+    ax.view_init(20, 225)
+    cs = ax.plot_surface(xv, yv, s, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
+                         linewidth=0, antialiased=False)
+    plt.colorbar(cs, ax=ax)
+    ax.set_zlim([-.1, 1.1])
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title('(Proportion) Synergistic Info (w/o cond\'t)')
+
+
+def plot_sur_prop(xv, yv, rp, sp, uxp, uyp, xlabel, ylabel, titleext='w/ cond\'t'):
+    '''Plot the proportions of SUR.'''
+    vmin, vmax = 0, 1
+    extent = [xv.min(), xv.max(), yv.max(), yv.min()]
+
+    plt.figure(figsize=(20, 16))
+    gs = gridspec.GridSpec(2, 2)
+    gs.update(wspace=.4, hspace=.4)
+
+    ax = plt.subplot(gs[0,0], projection='3d')
+    ax.view_init(20, 225)
+    cs = ax.plot_surface(xv, yv, rp, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
+                         linewidth=0, antialiased=False)
+    plt.colorbar(cs, ax=ax)
+    ax.set_zlim([-.1, 1.1])
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title('(Proportion) Redundant Info ' + titleext)
+
+    ax = plt.subplot(gs[0,1], projection='3d')
+    ax.view_init(20, 225)
+    cs = ax.plot_surface(xv, yv, sp, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
+                    linewidth=0, antialiased=False)
+    plt.colorbar(cs, ax=ax)
+    ax.set_zlim([-.1, 1.1])
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title('(Proportion) Synergistic Info ' + titleext)
+
+    ax = plt.subplot(gs[1,0], projection='3d')
+    ax.view_init(20, 225)
+    cs = ax.plot_surface(xv, yv, uxp, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
+                         linewidth=0, antialiased=False)
+    plt.colorbar(cs, ax=ax)
+    ax.set_zlim([-.1, 1.1])
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title('(Proportion) Unique Info of X ' + titleext)
+
+    ax = plt.subplot(gs[1,1], projection='3d')
+    ax.view_init(20, 225)
+    cs = ax.plot_surface(xv, yv, uyp, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
+                         linewidth=0, antialiased=False)
+    plt.colorbar(cs, ax=ax)
+    ax.set_zlim([-.1, 1.1])
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title('(Proportion) Unique Info of Y ' + titleext)
+
+def plot_ii(xv, yv, iic, ii, itc, it, xlabel, ylabel):
+    '''Plot the interaction information and the total information for comparison.'''
+    vmin1, vmax1 = np.min([iic, ii]), np.max([iic, ii])
+    vmin2, vmax2 = np.min([itc, it]), np.max([itc, it])
+    extent = [xv.min(), xv.max(), yv.min(), yv.max()]
+
+    plt.figure(figsize=(20, 16))
+    gs = gridspec.GridSpec(2, 2)
+    gs.update(wspace=.4, hspace=.4)
+
+    # ax = plt.subplot(gs[0,0], projection='3d')
+    # ax.view_init(20, 225)
+    # cs = ax.plot_surface(xv, yv, iic, cmap=plt.get_cmap('jet'), vmin=vmin1, vmax=vmax1,
+    #                      linewidth=0, antialiased=False)
+    # plt.colorbar(cs, ax=ax)
+    # ax.set_zlim([-.1, 1.1])
+    ax = plt.subplot(gs[0,0])
+    cs=ax.imshow(iic, cmap=plt.get_cmap('jet'), vmin=vmin1, vmax=vmax1, extent=extent,
+              interpolation='bilinear')
+    plt.colorbar(cs, ax=ax)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title('MIIT')
+
+    # ax = plt.subplot(gs[0,1], projection='3d')
+    # ax.view_init(20, 225)
+    # cs = ax.plot_surface(xv, yv, ii, cmap=plt.get_cmap('jet'), vmin=vmin1, vmax=vmax1,
+    #                 linewidth=0, antialiased=False)
+    # plt.colorbar(cs, ax=ax)
+    # ax.set_zlim([-.1, 1.1])
+    ax = plt.subplot(gs[0,1])
+    cs=ax.imshow(ii, cmap=plt.get_cmap('jet'), vmin=vmin1, vmax=vmax1, extent=extent,
+              interpolation='bilinear')
+    plt.colorbar(cs, ax=ax)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title('II')
+
+    # ax = plt.subplot(gs[1,0], projection='3d')
+    # ax.view_init(20, 225)
+    # cs = ax.plot_surface(xv, yv, itc, cmap=plt.get_cmap('jet'), vmin=vmin2, vmax=vmax2,
+    #                      linewidth=0, antialiased=False)
+    # plt.colorbar(cs, ax=ax)
+    # ax.set_zlim([-.1, 1.1])
+    ax = plt.subplot(gs[1,0])
+    cs=ax.imshow(itc, cmap=plt.get_cmap('jet'), vmin=vmin2, vmax=vmax2, extent=extent,
+              interpolation='bilinear')
+    plt.colorbar(cs, ax=ax)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title('I(X,Y;Z|W)')
+
+    # ax = plt.subplot(gs[1,1], projection='3d')
+    # ax.view_init(20, 225)
+    # cs = ax.plot_surface(xv, yv, it, cmap=plt.get_cmap('jet'), vmin=vmin2, vmax=vmax2,
+    #                      linewidth=0, antialiased=False)
+    # plt.colorbar(cs, ax=ax)
+    # ax.set_zlim([-.1, 1.1])
+    ax = plt.subplot(gs[1,1])
+    cs= ax.imshow(it, cmap=plt.get_cmap('jet'), vmin=vmin2, vmax=vmax2, extent=extent,
+              interpolation='bilinear')
+    plt.colorbar(cs, ax=ax)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title('I(X,Y;Z)')
+
+
+def plot_sr_comparison1d(xset, rc, r, sc, s, xlabel, title, proportion=True):
+    '''Plot the proportion of the synergistic and redundant information from both II and MIIT in 1d format.'''
+    plt.figure(figsize=(20, 8))
+    gs = gridspec.GridSpec(1, 1)
+    gs.update(wspace=.4, hspace=.4)
+
+    ax = plt.subplot(gs[0,0])
+    ax.plot(xset, rc, 'b', label='R (w/ condition)')
+    ax.plot(xset, r, 'r', label='R (w/o condition)')
+    ax.plot(xset, sc, 'b-.', label='S (w/ condition)')
+    ax.plot(xset, s, 'r-.', label='S (w/o condition)')
+    ax.legend(loc='upper right')
+    ax.set_xlabel(xlabel)
+    if proportion:
+        ax.set_ylabel('Proportion')
+        # ax.set_ylim([0,1])
+    ax.set_ylabel('Information (bit)')
+    ax.set_title(title)
+
+
+def plot_sur_1d(xset, rp, sp, uxp, uyp, xlabel, title, proportion=True):
+    '''Bar plot the SUR.'''
+    plt.figure(figsize=(20, 8))
+    gs = gridspec.GridSpec(1, 1)
+    gs.update(wspace=.4, hspace=.4)
+
+    ax = plt.subplot(gs[0,0])
+    bar1 = ax.bar(xset, rp, label='Redundant', color='b', edgecolor='white')
+    bar2 = ax.bar(xset, sp, label='Synergistic', color='r', edgecolor='white')
+    bar3 = ax.bar(xset, uxp, label='Unique(X)', color='y', edgecolor='white')
+    bar4 = ax.bar(xset, uyp, label='Unique(Y)', color='c', edgecolor='white')
+    ax.legend(loc='upper right')
+    # ax.bar(xset, rp, label='Redundant', color='b', width=bar_width, edgecolor='white')
+    # ax.bar(xset, sp, label='Synergistic', color='r', width=bar_width, edgecolor='white')
+    # ax.bar(xset, uxp, label='Unique(X)', color='y', width=bar_width, edgecolor='white')
+    # ax.bar(xset, uyp, label='Unique(Y)', color='c', width=bar_width, edgecolor='white')
+    ax.set_xlabel(xlabel)
+    if proportion:
+        ax.set_ylabel('Proportion')
+        # ax.set_ylim([0,1])
+    else:
+        ax.set_ylabel('Information (bit)')
+    ax.set_title(title)
+
+
+def plot_ii1d(xset, iic, ii, itc, it, xlabel, ylabel, title):
+    '''Plot the interaction information and the total information for comparison.'''
+    plt.figure(figsize=(20, 8))
+    gs = gridspec.GridSpec(1, 1)
+    gs.update(wspace=.4, hspace=.4)
+
+    ax = plt.subplot(gs[0,0])
+    ax.plot(xset, iic, 'b', label='MIIT')
+    ax.plot(xset, ii, 'r', label='II')
+    ax.plot(xset, itc, 'b-.', label='Itotal (w/ condition)')
+    ax.plot(xset, it, 'r-.', label='Itotal (w/o condition)')
+    ax.legend(loc='upper right')
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)

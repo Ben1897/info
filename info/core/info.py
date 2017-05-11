@@ -103,6 +103,7 @@ class info(object):
         # Compute H(X), H(Y) and H(Z)
         self.hx = entropy(xpdfs, base=self.base)  # H(X)
         self.hy = entropy(ypdfs, base=self.base)  # H(Y)
+        self.hz = entropy(zpdfs, base=self.base)  # H(Z)
 
         # Compute I(X;Z), I(Y;Z) and I(X;Y)
         self.ixz = computeMutualInfo(xpdfs, zpdfs, xzpdfs, base=self.base)  # I(X;Z)
@@ -156,6 +157,19 @@ class info(object):
         wpdfs = np.sum(pdfs, axis=(0,1,2))   # p(w)
         xwpdfs, ywpdfs, zwpdfs = np.sum(pdfs, axis=(1,2)), np.sum(pdfs, axis=(0,2)), np.sum(pdfs, axis=(0,1))  # p(x,w), p(y,w), p(z,w)
         xywpdfs, yzwpdfs, xzwpdfs = np.sum(pdfs, axis=(2)), np.sum(pdfs, axis=(0)), np.sum(pdfs, axis=(1))  # p(x,y,w), p(y,z,w), p(x,z,w)
+
+        # ## To be deleted
+        # xpdfs, ypdfs, zpdfs = np.sum(pdfs, axis=(1,2,3)), np.sum(pdfs, axis=(0,2,3)), np.sum(pdfs, axis=(0,1,3))  # p(x), p(y), p(z)
+        # xypdfs, yzpdfs, xzpdfs = np.sum(pdfs, axis=(2,3)), np.sum(pdfs, axis=(0,3)), np.sum(pdfs, axis=(1,3))  # p(x), p(y), p(z)
+        # self.hx    = entropy(xpdfs.flatten(), base=self.base)    # H(W)
+        # self.hy    = entropy(ypdfs.flatten(), base=self.base)    # H(W)
+        # self.hz    = entropy(zpdfs.flatten(), base=self.base)    # H(W)
+        # self.hxy   = entropy(xypdfs.flatten(), base=self.base)    # H(W)
+        # self.hyz   = entropy(yzpdfs.flatten(), base=self.base)    # H(W)
+        # self.hxz   = entropy(xzpdfs.flatten(), base=self.base)    # H(W)
+        # self.ixy   = self.hx + self.hy - self.hxy
+        # self.iyz   = self.hz + self.hy - self.hyz
+        # self.ixz   = self.hx + self.hz - self.hxz
 
         # Compute all the entropies
         self.hw    = entropy(wpdfs.flatten(), base=self.base)    # H(W)

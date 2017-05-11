@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cuda.h>
+#include <math.h>
 
 #include <sys/time.h>
 double get_time()
@@ -46,14 +47,19 @@ __global__ void kernel(double *pdfset, double *coordo,
         for (int k = 0; k < nvar; k++)
         {
           u  = (coordt[i*nvar+k] - coordo[j*nvar+k]) / bd[k];
-          if (u*u < 1)  // the Epanechnikov kernel
-          {
-            kernel = 0.75 * (1-u*u);
-            prod_kern = prod_kern * kernel/bd[k];
-          } else {
-            prod_kern = 0.;
-            break;
-          }
+          // Epanechnikov kernel
+          /* if (u*u < 1)  // the Epanechnikov kernel */
+          /* { */
+          /*   kernel = 0.75 * (1-u*u); */
+          /*   prod_kern = prod_kern * kernel/bd[k]; */
+          /* } else { */
+          /*   prod_kern = 0.; */
+          /*   break; */
+          /* } */
+
+          // Gaussian kernel
+          kernel = 1./sqrt(2*M_PI) * exp(-1./2.*pow(u,2));
+          prod_kern = prod_kern * kernel/bd[k];
         }
         // if (prod_kern > 0) printf("prod_kern %f\n", prod_kern);
         pdf = pdf + prod_kern;
