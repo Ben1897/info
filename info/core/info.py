@@ -4,7 +4,7 @@
 # 2D: H(X), H(Y), H(X|Y), H(Y|X), I(X;Y)
 # 3D: H(X1), H(Y), H(X2), I(X1;Y), I(X1;X2), I(X2;Y), T(Y->X), II, I(X1,Y;X2), R, S, U1, U2
 #
-# @Author: Peishi Jiang <Ben1897>
+# @AucomputeEhor: Peishi Jiang <Ben1897>
 # @Date:   2017-02-14T13:11:18-06:00
 # @Email:  shixijps@gmail.com
 # @Last modified by:   Ben1897
@@ -60,7 +60,7 @@ class info(object):
         pdfs -- a numpy array with shape (nx,)
         Output: NoneType
         '''
-        self.hx = entropy(pdfs, base=self.base)
+        self.hx = computeEntropy(pdfs, base=self.base)
 
     def __computeInfo2D(self, pdfs):
         '''
@@ -75,8 +75,8 @@ class info(object):
         # xpdfs_y        = pdfs / np.tile(ypdfs[np.newaxis, :], (nx, 1))  # p(x|y)
 
         # Compute H(X) and H(Y)
-        self.hx = entropy(xpdfs, base=self.base)  # H(X)
-        self.hy = entropy(ypdfs, base=self.base)  # H(Y)
+        self.hx = computeEntropy(xpdfs, base=self.base)  # H(X)
+        self.hy = computeEntropy(ypdfs, base=self.base)  # H(Y)
 
         # Compute H(X|Y), H(Y|X)
         self.hy_x = computeConditionalInfo(xpdfs, ypdfs, pdfs, base=2)  # H(Y|X)
@@ -101,9 +101,9 @@ class info(object):
         xypdfs, yzpdfs, xzpdfs = np.sum(pdfs, axis=(2)), np.sum(pdfs, axis=(0)), np.sum(pdfs, axis=(1))  # p(x,y), p(y,z), p(x,z)
 
         # Compute H(X), H(Y) and H(Z)
-        self.hx = entropy(xpdfs, base=self.base)  # H(X)
-        self.hy = entropy(ypdfs, base=self.base)  # H(Y)
-        self.hz = entropy(zpdfs, base=self.base)  # H(Z)
+        self.hx = computeEntropy(xpdfs, base=self.base)  # H(X)
+        self.hy = computeEntropy(ypdfs, base=self.base)  # H(Y)
+        self.hz = computeEntropy(zpdfs, base=self.base)  # H(Z)
 
         # Compute I(X;Z), I(Y;Z) and I(X;Y)
         self.ixz = computeMutualInfo(xpdfs, zpdfs, xzpdfs, base=self.base)  # I(X;Z)
@@ -161,25 +161,25 @@ class info(object):
         # ## To be deleted
         # xpdfs, ypdfs, zpdfs = np.sum(pdfs, axis=(1,2,3)), np.sum(pdfs, axis=(0,2,3)), np.sum(pdfs, axis=(0,1,3))  # p(x), p(y), p(z)
         # xypdfs, yzpdfs, xzpdfs = np.sum(pdfs, axis=(2,3)), np.sum(pdfs, axis=(0,3)), np.sum(pdfs, axis=(1,3))  # p(x), p(y), p(z)
-        # self.hx    = entropy(xpdfs.flatten(), base=self.base)    # H(W)
-        # self.hy    = entropy(ypdfs.flatten(), base=self.base)    # H(W)
-        # self.hz    = entropy(zpdfs.flatten(), base=self.base)    # H(W)
-        # self.hxy   = entropy(xypdfs.flatten(), base=self.base)    # H(W)
-        # self.hyz   = entropy(yzpdfs.flatten(), base=self.base)    # H(W)
-        # self.hxz   = entropy(xzpdfs.flatten(), base=self.base)    # H(W)
+        # self.hx    = computeEntropy(xpdfs.flatten(), base=self.base)    # H(W)
+        # self.hy    = computeEntropy(ypdfs.flatten(), base=self.base)    # H(W)
+        # self.hz    = computeEntropy(zpdfs.flatten(), base=self.base)    # H(W)
+        # self.hxy   = computeEntropy(xypdfs.flatten(), base=self.base)    # H(W)
+        # self.hyz   = computeEntropy(yzpdfs.flatten(), base=self.base)    # H(W)
+        # self.hxz   = computeEntropy(xzpdfs.flatten(), base=self.base)    # H(W)
         # self.ixy   = self.hx + self.hy - self.hxy
         # self.iyz   = self.hz + self.hy - self.hyz
         # self.ixz   = self.hx + self.hz - self.hxz
 
         # Compute all the entropies
-        self.hw    = entropy(wpdfs.flatten(), base=self.base)    # H(W)
-        self.hxw   = entropy(xwpdfs.flatten(), base=self.base)   # H(X,W)
-        self.hyw   = entropy(ywpdfs.flatten(), base=self.base)   # H(Y,W)
-        self.hzw   = entropy(zwpdfs.flatten(), base=self.base)   # H(Z,W)
-        self.hxyw  = entropy(xywpdfs.flatten(), base=self.base)  # H(X,Y,W)
-        self.hyzw  = entropy(yzwpdfs.flatten(), base=self.base)  # H(Y,Z,W)
-        self.hxzw  = entropy(xzwpdfs.flatten(), base=self.base)  # H(X,Z,W)
-        self.hxyzw = entropy(pdfs.flatten(), base=self.base)     # H(X,Y,Z,W)
+        self.hw    = computeEntropy(wpdfs.flatten(), base=self.base)    # H(W)
+        self.hxw   = computeEntropy(xwpdfs.flatten(), base=self.base)   # H(X,W)
+        self.hyw   = computeEntropy(ywpdfs.flatten(), base=self.base)   # H(Y,W)
+        self.hzw   = computeEntropy(zwpdfs.flatten(), base=self.base)   # H(Z,W)
+        self.hxyw  = computeEntropy(xywpdfs.flatten(), base=self.base)  # H(X,Y,W)
+        self.hyzw  = computeEntropy(yzwpdfs.flatten(), base=self.base)  # H(Y,Z,W)
+        self.hxzw  = computeEntropy(xzwpdfs.flatten(), base=self.base)  # H(X,Z,W)
+        self.hxyzw = computeEntropy(pdfs.flatten(), base=self.base)     # H(X,Y,Z,W)
         self.hx_w  = self.hxw - self.hw                # H(X|W)
         self.hy_w  = self.hyw - self.hw                # H(Y|W)
 
@@ -187,6 +187,18 @@ class info(object):
         self.ixy_w = self.hxw + self.hyw - self.hw - self.hxyw  # I(X;Y|W)
         self.ixz_w = self.hxw + self.hzw - self.hw - self.hxzw  # I(X;Z|W)
         self.iyz_w = self.hyw + self.hzw - self.hw - self.hyzw  # I(Y;Z|W)
+
+        ## (TODO: to be revised) Ensure that they are not negative
+        if self.ixy_w < 0 and np.abs(self.ixy_w / self.hw) < 1e-5:
+            self.ixy_w = 0.
+        if self.ixz_w < 0 and np.abs(self.ixz_w / self.hw) < 1e-5:
+            self.ixz_w = 0.
+        if self.iyz_w < 0 and np.abs(self.iyz_w / self.hw) < 1e-5:
+            self.iyz_w = 0.
+        if self.hx_w < 0 and np.abs(self.hx_w / self.hw) < 1e-5:
+            self.hx_w = 0.
+        if self.hy_w < 0 and np.abs(self.hy_w / self.hw) < 1e-5:
+            self.hy_w = 0.
 
         # Compute MIIT
         self.ii = self.hxyw + self.hyzw + self.hxzw + self.hw - self.hxw - self.hyw - self.hzw - self.hxyzw
@@ -229,6 +241,15 @@ class info(object):
                                       self.rmmi, self.isource, self.rmin],
                                      index=['MIIT', 'Itotal', 'Rc', 'Sc', 'Uxc', 'Uyc',
                                             'RMMIc', 'Isc', 'Rminc'])
+
+def computeEntropy(pdfs, base=2):
+    '''Compute the entropy H(X).'''
+    # Calculate the log of pdf
+    pdfs_log = np.ma.log(pdfs)
+    pdfs_log = pdfs_log.filled(0) / np.log(base)
+
+    # Calculate H(X)
+    return -np.sum(pdfs*pdfs_log)
 
 
 def computeConditionalInfo(xpdfs, ypdfs, xypdfs, base=2):
@@ -317,86 +338,6 @@ def computeConditionalMutualInformation(pdfs, option=1, base=2.):
 
     # Calculate log(p(y|z,x)/p(y|x))
     txypdf_log = np.ma.log(pdfs*factor1/(factor2*factor3))
-    txypdf_log = txypdf_log.filled(0)
-
-    # Calculate each info element in T(Y->Z|X)
-    txypdf = pdfs * txypdf_log / np.log(base)
-
-    # Calculate the transfer entropy
-    return np.sum(txypdf)
-
-
-def computeConditionalInfo_old(xpdfs, ypdfs_x, base=2):
-    '''
-    Compute the conditional information H(Y|X)
-    Input:
-    xpdfs   -- pdf of x [a numpy array with shape(nx)]
-    ypdfs_x -- conditional pdf of y on x [a numpy array with shape (nx, ny)]
-    Output:
-    the coonditional information [float]
-    '''
-    nx, ny = ypdfs_x.shape
-
-    # Calculate the log of p(y|x) and treat log(0) as zero
-    ypdfs_x_log = np.ma.log(ypdfs_x)
-    ypdfs_x_log = ypdfs_x_log.filled(0)
-
-    # Get the each info element in H(Y|X=x)
-    hy_x_xy = - ypdfs_x * ypdfs_x_log / np.log(base)
-
-    # Sum hxy_xy over y to get H(Y|X=x)
-    hy_x_x = np.sum(hy_x_xy, axis=1)
-
-    # Calculate H(Y|X)
-    return np.sum(xpdfs*hy_x_x)
-
-
-def computeTransferEntropy_old(ypdfs_x, ypdfs_xz, pdfs, base=2):
-    '''
-    Compute the transfer entropy T(Y->Z|X) or conditional information information I(Y,Z|X)
-    Input:
-    ypdfs_x  -- conditional pdf of y on x [a numpy array with shape (nx, ny)]
-    ypdfs_xz -- conditional pdf of y on x and z [a numpy array with shape (nx, ny, nz)]
-    pdfs     -- the joint pdf of x, y and z [a numpy array with shape (nx, ny, nz)]
-    Output:
-    the transfer entropy [float]
-    '''
-    nx, ny, nz = pdfs.shape
-
-    # Expand ypdfs_x to the shape (nx, ny, nz)
-    ypdfs_x = np.tile(ypdfs_x[:, :, np.newaxis], [1, 1, nz])
-
-    # Calculate log(p(y|z,x)/p(y|x))
-    txypdf_log = np.ma.log(ypdfs_xz/ypdfs_x)
-    txypdf_log = txypdf_log.filled(0)
-
-    # Calculate each info element in T(Y->Z|X)
-    txypdf = pdfs * txypdf_log
-
-    # Calculate the transfer entropy
-    return np.sum(txypdf)
-
-
-def computeTransferEntropy_old2(xpdfs, xzpdfs, xypdfs, pdfs, base=2):
-    '''
-    Compute the transfer entropy T(Y->Z|X) or conditional information information I(Y,Z|X)
-    Input:
-    zpdfs  -- pdf of z [a numpy array with shape (nx)]
-    xzpdfs -- joint pdf of x and z [a numpy array with shape (nx, nz)]
-    yzpdfs -- joint pdf of y and z [a numpy array with shape (ny, nz)]
-    pdfs   -- the joint pdf of x, y and z [a numpy array with shape (nx, ny, nz)]
-    Output:
-    the transfer entropy [float]
-    '''
-    nx, ny, nz = pdfs.shape
-
-    # Expand zpdfs, xzpdfs, yzpdfs to the shape (nx, ny, nz)
-    xpdfs  = np.tile(xpdfs[:, np.newaxis, np.newaxis], [1, ny, nz])
-    xzpdfs = np.tile(xzpdfs[:, np.newaxis, :], [1, ny, 1])
-    xypdfs = np.tile(xypdfs[:, :, np.newaxis], [1, 1, nz])
-
-    # Calculate log(p(y|z,x)/p(y|x))
-    txypdf_log = np.ma.log(pdfs*xpdfs/(xzpdfs*xypdfs))
     txypdf_log = txypdf_log.filled(0)
 
     # Calculate each info element in T(Y->Z|X)

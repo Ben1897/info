@@ -48,7 +48,31 @@ dt = .01
 Nt = 10000
 x0, y0, z0 = 10., 10., 10.
 
-def main():
+
+def mainsingle():
+    r = 5.1
+    print '*** r = %.1f ***' % r
+    # Simulation
+    x, y, z = Lorenze_model(x0, y0, z0, Nt, dt, sigma, r, b)
+
+    xt3, xt2, xt1 = x[:-3], x[1:-2], x[2:-1]
+    yt, yt1, yt2  = y[3:], y[2:-1], y[1:-2]
+    zt1, zt2 = z[2:-1], z[1:-2]
+
+    # Calculate interation information
+    ######################################################
+    # MIIT for the Lorenz model                          #
+    # II[X(t-2);X(t-1);Y(t)|Y(t-1),Z(t-1),X(t-3),Y(t-2)] #
+    ######################################################
+    print 'II[X(t-2);X(t-1);Y(t)|Y(t-1),Z(t-1),X(t-3),Y(t-2)]'
+    data11 = np.array([xt2,xt1,yt,yt1,zt1,xt3,yt2]).T
+    pdfsolver = pdfComputer(ndim='m', approach=approach, bandwidth='silverman')
+    t11, pdf11, coords11 = pdfsolver.computePDF(data11, nbins=[nx, nx, ny, ny, nz, nx, ny])
+    pid11 = info(pdf11)
+    print pid11.allInfo
+
+
+def mainmultiple():
     pid11set, pid12set = [], []
     pid21set, pid22set = [], []
     for r in r_set:
@@ -61,6 +85,9 @@ def main():
         ax = fig.add_subplot(111, projection='3d')
         ax.plot(x, y, z, label='parametric curve')
         ax.set_title('sigma: %.1f; b: %.1f; r: %.1f' % (sigma, b, r))
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
         plt.savefig(figureFolder + 'LorenzPlot(r=%.1f).png' % r, dpi=150)
 
         # Calculate interation information
@@ -76,27 +103,23 @@ def main():
     with open('pids_Lorenz.pickle', 'w') as f:
         pickle.dump([pid11set, pid12set, pid21set, pid22set], f)
 
-    # print pid11.allInfo
-    # print pid12.allInfo
-    # print pid21.allInfo
-    # print pid22.allInfo
-
 
 def plot_analysis():
+    cut = 15
     # Read the INFO
     with open('pids_Lorenz.pickle') as f:
         pid11set, pid12set, pid21set, pid22set = pickle.load(f)
 
     # Get the info
-    rc1, r1, rc2, r2 = np.zeros(nr), np.zeros(nr), np.zeros(nr), np.zeros(nr)
-    sc1, s1, sc2, s2 = np.zeros(nr), np.zeros(nr), np.zeros(nr), np.zeros(nr)
-    uxc1, ux1, uxc2, ux2 = np.zeros(nr), np.zeros(nr), np.zeros(nr), np.zeros(nr)
-    uyc1, uy1, uyc2, uy2 = np.zeros(nr), np.zeros(nr), np.zeros(nr), np.zeros(nr)
-    itc1, it1, itc2, it2 = np.zeros(nr), np.zeros(nr), np.zeros(nr), np.zeros(nr)
-    iic1, ii1, iic2, ii2 = np.zeros(nr), np.zeros(nr), np.zeros(nr), np.zeros(nr)
+    rc1, r1, rc2, r2 = np.zeros(nr-cut), np.zeros(nr-cut), np.zeros(nr-cut), np.zeros(nr-cut)
+    sc1, s1, sc2, s2 = np.zeros(nr-cut), np.zeros(nr-cut), np.zeros(nr-cut), np.zeros(nr-cut)
+    uxc1, ux1, uxc2, ux2 = np.zeros(nr-cut), np.zeros(nr-cut), np.zeros(nr-cut), np.zeros(nr-cut)
+    uyc1, uy1, uyc2, uy2 = np.zeros(nr-cut), np.zeros(nr-cut), np.zeros(nr-cut), np.zeros(nr-cut)
+    itc1, it1, itc2, it2 = np.zeros(nr-cut), np.zeros(nr-cut), np.zeros(nr-cut), np.zeros(nr-cut)
+    iic1, ii1, iic2, ii2 = np.zeros(nr-cut), np.zeros(nr-cut), np.zeros(nr-cut), np.zeros(nr-cut)
 
-    for i in range(nr):
-        pid11, pid12, pid21, pid22 = pid11set[i], pid12set[i], pid21set[i], pid22set[i]
+    for i in range(nr-cut):
+        pid11, pid12, pid21, pid22 = pid11set[cut+i], pid12set[cut+i], pid21set[cut+i], pid22set[cut+i]
 
         rc1[i], r1[i], rc2[i], r2[i] = pid11.r, pid12.r, pid21.r, pid22.r
         sc1[i], s1[i], sc2[i], s2[i] = pid11.s, pid12.s, pid21.s, pid22.s
@@ -105,38 +128,52 @@ def plot_analysis():
         itc1[i], it1[i], itc2[i], it2[i] = pid11.itot, pid12.itot, pid21.itot, pid22.itot
         iic1[i], ii1[i], iic2[i], ii2[i] = pid11.ii, pid12.ii, pid21.ii, pid22.ii
 
+        if i == 1:
+            print itc1[i], rc1[i], uxc1[i], uyc1[i], sc1[i]
+            print pid11.ii, pid11.rmin, pid11.ixz_w, pid11.iyz_w
+            print pid11.hw, pid11.hxw, pid11.hyw, pid11.hxyw
+            print pid11.hxyw - pid11.hyw
+        # if i == 20:
+        #     print itc1[i], rc1[i], uxc1[i], uyc1[i], sc1[i]
+        #     print it2[i], r2[i], ux2[i], uy2[i], s2[i]
+        # print '**** r = %.1f ****' % r_set[i]
+        # print pid11.itot, pid11.itot / (pid11.r+pid11.s+pid11.uxz+pid11.uyz)
+        # print pid12.itot, pid12.itot / (pid12.r+pid12.s+pid12.uxz+pid12.uyz)
+        # print pid21.itot, pid21.itot / (pid21.r+pid21.s+pid21.uxz+pid21.uyz)
+        # print pid22.itot, pid22.itot / (pid22.r+pid22.s+pid22.uxz+pid22.uyz)
+
     # Plot interaction information
-    plot_ii1d(r_set, iic1, ii1, itc1, it1, xlabel='information (bit)', title='Lorenz case 1', ylabel='r')
+    plot_ii1d(r_set[cut:], iic1, ii1, itc1, it1, xlabel='information (bit)', title='Lorenz case 1', ylabel='r')
     plt.savefig(figureFolder + 'II_comparison_Lorenz_case1.png', dpi=150)
-    plot_ii1d(r_set, iic2, ii2, itc2, it2, xlabel='information (bit)', title='Lorenz case 2', ylabel='r')
+    plot_ii1d(r_set[cut:], iic2, ii2, itc2, it2, xlabel='information (bit)', title='Lorenz case 2', ylabel='r')
     plt.savefig(figureFolder + 'II_comparison_Lorenz_case2.png', dpi=150)
 
     # Plot SUR partition
-    plot_sur_1d(r_set, rc1, sc1, uxc1, uyc1, xlabel='r', title='Lorenz case 1 (w/ conditions)', proportion=False)
+    plot_sur_1d(r_set[cut:], rc1, sc1, uxc1, uyc1, xlabel='r', title='Lorenz case 1 (w/ conditions)', proportion=False)
     plt.savefig(figureFolder + 'SUR_Lorenz_case1_wc.png')
-    plot_sur_1d(r_set, r1, s1, ux1, uy1, xlabel='r', title='Lorenz case 1 (w/o conditions)', proportion=False)
+    plot_sur_1d(r_set[cut:], r1, s1, ux1, uy1, xlabel='r', title='Lorenz case 1 (w/o conditions)', proportion=False)
     plt.savefig(figureFolder + 'SUR_Lorenz_case1_woc.png')
-    plot_sur_1d(r_set, rc2, sc2, uxc2, uyc2, xlabel='r', title='Lorenz case 2 (w/ conditions)', proportion=False)
+    plot_sur_1d(r_set[cut:], rc2, sc2, uxc2, uyc2, xlabel='r', title='Lorenz case 2 (w/ conditions)', proportion=False)
     plt.savefig(figureFolder + 'SUR_Lorenz_case2_wc.png')
-    plot_sur_1d(r_set, r2, s2, ux2, uy2, xlabel='r', title='Lorenz case 2 (w/o conditions)', proportion=False)
+    plot_sur_1d(r_set[cut:], r2, s2, ux2, uy2, xlabel='r', title='Lorenz case 2 (w/o conditions)', proportion=False)
     plt.savefig(figureFolder + 'SUR_Lorenz_case2_woc.png')
-    plot_sr_comparison1d(r_set, rc1, r1, sc1, s1, xlabel='r', title='Lorenz case 1', proportion=False)
-    plt.savefig(figureFolder + 'SR_prop_Lorenz_case1.png')
-    plot_sr_comparison1d(r_set, rc2, r2, sc2, s2, xlabel='r', title='Lorenz case 2', proportion=False)
-    plt.savefig(figureFolder + 'SR_prop_Lorenz_case2.png')
+    plot_sr_comparison1d(r_set[cut:], rc1, r1, sc1, s1, xlabel='r', title='Lorenz case 1', proportion=False)
+    plt.savefig(figureFolder + 'SR_Lorenz_case1.png')
+    plot_sr_comparison1d(r_set[cut:], rc2, r2, sc2, s2, xlabel='r', title='Lorenz case 2', proportion=False)
+    plt.savefig(figureFolder + 'SR_Lorenz_case2.png')
 
     # Plot the proportion of SUR information
-    plot_sur_1d(r_set, rc1/itc1, sc1/itc1, uxc1/itc1, uyc1/itc1, xlabel='r', title='Lorenz case 1 (w/ conditions)', proportion=True)
+    plot_sur_1d(r_set[cut:], rc1/itc1, sc1/itc1, uxc1/itc1, uyc1/itc1, xlabel='r', title='Lorenz case 1 (w/ conditions)', proportion=True)
     plt.savefig(figureFolder + 'SUR_prop_Lorenz_case1_wc.png')
-    plot_sur_1d(r_set, r1/it1, s1/it1, ux1/it1, uy1/it1, xlabel='r', title='Lorenz case 1 (w/o conditions)', proportion=True)
+    plot_sur_1d(r_set[cut:], r1/it1, s1/it1, ux1/it1, uy1/it1, xlabel='r', title='Lorenz case 1 (w/o conditions)', proportion=True)
     plt.savefig(figureFolder + 'SUR_prop_Lorenz_case1_woc.png')
-    plot_sur_1d(r_set, rc2/itc2, sc2/itc2, uxc2/itc2, uyc2/itc2, xlabel='r', title='Lorenz case 2 (w/ conditions)', proportion=True)
+    plot_sur_1d(r_set[cut:], rc2/itc2, sc2/itc2, uxc2/itc2, uyc2/itc2, xlabel='r', title='Lorenz case 2 (w/ conditions)', proportion=True)
     plt.savefig(figureFolder + 'SUR_prop_Lorenz_case2_wc.png')
-    plot_sur_1d(r_set, r2/it2, s2/it2, ux2/it2, uy2/it2, xlabel='r', title='Lorenz case 2 (w/o conditions)', proportion=True)
+    plot_sur_1d(r_set[cut:], r2/it2, s2/it2, ux2/it2, uy2/it2, xlabel='r', title='Lorenz case 2 (w/o conditions)', proportion=True)
     plt.savefig(figureFolder + 'SUR_prop_Lorenz_case2_woc.png')
-    plot_sr_comparison1d(r_set, rc1/itc1, r1/it1, sc1/itc1, s1/it1, xlabel='r', title='Lorenz case 1', proportion=True)
+    plot_sr_comparison1d(r_set[cut:], rc1/itc1, r1/it1, sc1/itc1, s1/it1, xlabel='r', title='Lorenz case 1', proportion=True)
     plt.savefig(figureFolder + 'SR_prop_Lorenz_case1.png')
-    plot_sr_comparison1d(r_set, rc2/itc2, r2/it2, sc2/itc2, s2/it2, xlabel='r', title='Lorenz case 2', proportion=True)
+    plot_sr_comparison1d(r_set[cut:], rc2/itc2, r2/it2, sc2/itc2, s2/it2, xlabel='r', title='Lorenz case 2', proportion=True)
     plt.savefig(figureFolder + 'SR_prop_Lorenz_case2.png')
 
 
@@ -192,5 +229,5 @@ def interaction_information(x, y, z):
     return pid11, pid12, pid21, pid22
 
 if __name__ == "__main__":
-    # main()
+    # mainmultiple()
     plot_analysis()
