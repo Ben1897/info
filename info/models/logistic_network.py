@@ -12,20 +12,23 @@ Ref: Allison's TIPNets process network manuscript
 """
 
 import numpy as np
-from ..utils.noise import noise
+from info.utils.noise import noise
+# from ..utils.noise import noise
 
 
 class Logistic(object):
 
-    allowedNoiseTypes = ['exclusive', 'additive', 'multiplicative']
+    allowedNoiseTypes = ['additive', 'multiplicative']
 
-    def __init__(self, n, adjM, lagM, noiseType='additive',
-                 noiseDist=None, noiseOn=None, noisePara=None):
+    def __init__(self, n, adjM, lagM, e, ez, noiseType='additive',
+                 noiseDist=None, noisePara=None):
         """The initial function.
 
         n:         the number of variables [int]
         adjM:      the adjacent matrix [numpy array]
         lagM:      the lag matrix [numpy array]
+        e:         the coupling strength with the histories of other nodes
+        ez:        the coupling strength with the noise
         noiseType: exclusive/ additive / multiplicative [string]
         noiseDist: the distribution of the noise [string]
         noiseOn:   the 1/0 values for determining whether the noise is used for each variable [numpy array]
@@ -37,18 +40,20 @@ class Logistic(object):
         self.n         = n
         self.adjM      = adjM
         self.lagM      = lagM
+        self.e         = e
+        self.ez        = ez
         self.checkMatrix()
 
-        if noiseOn is None:
-            self.noiseOn = np.zeros(n)
-        else:
-            if len(noiseOn) != self.n:
-                raise Exception('the size of noiseOn should be equal to %d!' % n)
-
-            noiseOnset = np.unique(noiseOn)
-            if not np.in1d(noiseOnset, np.array([0, 1])).all():
-                raise Exception('Values of noiseOn should be from {0, 1}')
-            self.noiseOn = noiseOn
+        # if noiseOn is None:
+        #     self.noiseOn = np.zeros(n)
+        # else:
+        #     if len(noiseOn) != self.n:
+        #         raise Exception('the size of noiseOn should be equal to %d!' % n)
+        #
+        #     noiseOnset = np.unique(noiseOn)
+        #     if not np.in1d(noiseOnset, np.array([0, 1])).all():
+        #         raise Exception('Values of noiseOn should be from {0, 1}')
+        #     self.noiseOn = noiseOn
 
         if noiseType not in self.allowedNoiseTypes:
             raise Exception('Unknown noise type %s!' % noiseType)
@@ -92,21 +97,22 @@ class Logistic(object):
         """
         noiseGenerator = self.noise.generator
 
-        def getFunctionForVar(w, non, i):
+        def getFunctionForVar(w, i):
+            e, ez = self.e, self.ez
             k = np.nonzero(w)[0].size
             if k != 0:
                 if self.noiseType == 'additive':
-                    return lambda x: sum([w[i]*logisticEqn(x[i]) for i in range(self.n)]) / k + non*noiseGenerator()
+                    return lambda x, i: (1-e)*logisticEqn(x[i]) + (1-ez)*e*sum([w[j]*logisticEqn(x[j]) for j in range(self.n)]) / k + e*ez*noiseGenerator()
                 elif self.noiseType == 'multiplicative':
-                    return lambda x: sum([w[i]*logisticEqn(x[i]) for i in range(self.n)]) / k + non*x[i]*noiseGenerator()
+                    return lambda x, i: (1-e)*logisticEqn(x[i]) + (1-ez)*e*sum([w[j]*logisticEqn(x[j]) for j in range(self.n)]) / k + e*ez*x[i]*noiseGenerator()
             else:
                 if self.noiseType == 'additive':
-                    return lambda x: non*noiseGenerator()
+                    return lambda x, i: (1-e)*logisticEqn(x[i]) + e*ez*noiseGenerator()
                 elif self.noiseType == 'multiplicative':
-                    return lambda x: non*x*noiseGenerator()
+                    return lambda x, i: (1-e)*logisticEqn(x[i]) + e*ez*x*noiseGenerator()
 
         # Create a list of functions
-        self.funcs = list(map(getFunctionForVar, self.adjM, self.noiseOn, range(self.n)))
+        self.funcs = list(map(getFunctionForVar, self.adjM, range(self.n)))
 
     def simulate(self, nstep):
         """
@@ -128,7 +134,10 @@ class Logistic(object):
             index = i+ntrash
             prex = simul[:, index-maxLag:index]
             x = self.getRequiredX(prex)
-            simul[:, index] = map(lambda j: self.funcs[j](x[j]), range(self.n))
+            # print self.funcs
+            # print self.funcs[0](x[0])
+            # print self.funcs[1](x[1])
+            simul[:, index] = map(lambda j: self.funcs[j](x[j], j), range(self.n))
             # x1 = self.funcs[0](x[0])
             # x2 = self.funcs[1](x[1])
             # simul[:, index] = np.array([x1, x2])
