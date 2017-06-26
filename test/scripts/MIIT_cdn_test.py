@@ -88,11 +88,7 @@ for i in range(ncwx):
         itc[i,j], it[i,j]  = pid1.itot, pid2.itot
         iic[i,j], ii[i,j]  = pid1.ii, pid2.ii
 
-        if pid2.itot < 0:
-            print 'Wrong ---'
-            print pid2.ixz, pid2.iyz
-            print pid2.s, pid2.itot, pid2.ii
-            print pid2.isource, pid2.rmin, pid2.rmmi
+        # print 'hi ---'
 
 print "Time usage %.2f" % (time() - start)
 
@@ -145,12 +141,24 @@ if PLOT == 1:
     plt.savefig(figureFolder + 'ncd_mip_prop.png', bbox_inches='tight', dpi=250)
 
     # plot all the figures from II
-    plot_pid(xv, yv, ii, r/it, s/it, ux/it, uy/it, xlabel, ylabel,
+    plot_pid(xv, yv, ii, r/it, s/it, ux/it, uy/it, xlabeltex, ylabeltex,
              vmin1=vmin, vmax1=vmax, option='II', prop=True)
     # plt.tight_layout(pad=0)
     plt.savefig(figureFolder + 'ncd_pid_prop.png', bbox_inches='tight', dpi=250)
 
-##############################################
+#    # plot all the figures from GMII
+    plot_pid(xv, yv, iic, rc, sc, uxc, uyc, xlabeltex, ylabeltex,
+             vmin1=vmin, vmax1=vmax, option='MIP', prop=False)
+    # plt.tight_layout(pad=0)
+    plt.savefig(figureFolder + 'ncd_mip.png', bbox_inches='tight', dpi=250)
+
+    # plot all the figures from II
+    plot_pid(xv, yv, ii, r, s, ux, uy, xlabeltex, ylabeltex,
+             vmin1=vmin, vmax1=vmax, option='II', prop=False)
+    # plt.tight_layout(pad=0)
+    plt.savefig(figureFolder + 'ncd_pid.png', bbox_inches='tight', dpi=250)
+
+#############################################
 # ii for the linear common driver model #
 # ii[x(t-1);y(t-1);z(t)|w(t-2)]              #
 ##############################################
