@@ -68,8 +68,8 @@ def search_mip_condition(causalDict, source1, source2, target, taumax=4, verbosi
     s1node = get_node_number(source1, nvar, 0)
     s2node = get_node_number(source2, nvar, 0)
     pt = g.predecessors(tnode)
-    ps1path, s1path = get_path_nodes_and_their_parents(g, s1node, tnode)
-    ps2path, s2path = get_path_nodes_and_their_parents(g, s2node, tnode)
+    ps1path, s1path, s1pathnested = get_path_nodes_and_their_parents(g, s1node, tnode)
+    ps2path, s2path, s2pathnested = get_path_nodes_and_their_parents(g, s2node, tnode)
 
     # print tnode, pt
     # print s1path, s2path
@@ -88,21 +88,23 @@ def search_mip_condition(causalDict, source1, source2, target, taumax=4, verbosi
     ps1path = convert_nodes_to_listofset(ps1path, nvar)
     ps2path = convert_nodes_to_listofset(ps2path, nvar)
     s1path = convert_nodes_to_listofset(s1path, nvar)
+    s1pathnested = [convert_nodes_to_listofset(path, nvar) for path in s1pathnested]
     s2path = convert_nodes_to_listofset(s2path, nvar)
+    s2pathnested = [convert_nodes_to_listofset(path, nvar) for path in s2pathnested]
     w = convert_nodes_to_listofset(w, nvar)
 
     if verbosity > 0:
         print '------- The causal path from the first source to the target is:'
-        print s1path
+        print s1pathnested
         print ''
         print '------- The causal path from the second source to the target is:'
-        print s2path
+        print s2pathnested
         print ''
         print '------- The MIP condition includes:'
         print w
         print ''
 
-    return pt, s1path, s2path, ps1path, ps2path, w
+    return pt, s1pathnested, s2pathnested, ps1path, ps2path, w
 
 
 # Help functions
@@ -131,17 +133,18 @@ def get_path_nodes_and_their_parents(g, s1node, tnode):
     '''Get the path from s1node to tnode and the parents of the path given a graph g.'''
     # Get the path from s1node to tnode
     pathall = nx.all_simple_paths(g, s1node, tnode)
+    pathall = list(pathall)
 
     # Exclude the target node
-    paths = [p[:-1] for p in pathall]
+    s1pathsnested = [p[:-1] for p in pathall]
 
     # Convert the paths to a list of nodes
-    s1path = unique([node for path in paths for node in path])
+    s1path = unique([node for path in s1pathsnested for node in path])
 
     # Get the parents of the paths
     # (1) get the parents of each node in all the paths
     parents = []
-    for p in paths:
+    for p in s1pathsnested:
         for node in p:
             parent = g.predecessors(node)
             parents += parent
@@ -149,7 +152,7 @@ def get_path_nodes_and_their_parents(g, s1node, tnode):
     # (2) exclude the parents which are also the nodes in the paths
     ps1path = exclude_intersection(parents, s1path)
 
-    return ps1path, s1path
+    return ps1path, s1path, pathall
 
 
 def unique(a):
