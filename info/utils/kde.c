@@ -12,6 +12,11 @@
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
+
+#ifndef M_PI
+    #define M_PI 3.14159265358979323846
+#endif
 
 /**
  * [kde kernel density function
@@ -53,15 +58,20 @@ double *kde(int nvar, int Nt, int No, double *bd, double *coordo, double *coordt
       for (int k = 0; k < nvar; k++)
       {
         u  = (coordt[i*nvar+k] - coordo[j*nvar+k]) / bd[k];
-        if (u*u < 1)
-        {
-          kernel = 0.75 * (1-u*u);  // the Epanechnikov kernel
-          prod_kern = prod_kern * kernel/bd[k];
-        } else {
-          prod_kern = 0.;
-          break;
-        }
-      }
+        // Epanechnikov kernel
+        /* if (u*u < 1) */
+        /* { */
+        /*   kernel = 0.75 * (1-u*u);  // the Epanechnikov kernel */
+        /*   prod_kern = prod_kern * kernel/bd[k]; */
+        /* } else { */
+        /*   prod_kern = 0.; */
+        /*   break; */
+        /* } */
+
+        // Gaussian kernel
+        kernel = 1./sqrt(2*M_PI) * exp(-1./2.*pow(u,2));
+        prod_kern = prod_kern * kernel/bd[k];
+     }
 
       pdf = pdf + prod_kern;
     }

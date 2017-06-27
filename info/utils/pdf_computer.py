@@ -161,6 +161,7 @@ class pdfComputer(object):
         Nt = reduce((lambda x, y: x*y), nbins)
 
         # Generate the coordinates where pdfs are estimated with shape (Nt, ndim )
+        # print coords
         coord  = np.meshgrid(*coords, indexing='ij')
         coordt = np.array(coord).reshape(ndim, Nt).T
 
@@ -764,7 +765,7 @@ class pdfComputer(object):
             nbins  -- the number of bins in each dimension [list]
         Outputs:
             coords -- the coordinates for PDF generation [ndarray with shape (ndim,)]
-            edges  -- the edges for PDF generation [ndarray with shape (ndim,)]
+            # edges  -- the edges for PDF generation [ndarray with shape (ndim,)]
         '''
         ndim, atom = self.ndim, self.atom
         limits     = self.limits

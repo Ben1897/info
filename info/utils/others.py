@@ -11,6 +11,7 @@ interpolate_nan()
 parse_SFP()
 read_SFPmatfile()
 convert_matlabdatenum()
+reorganize_data()
 
 """
 
@@ -160,3 +161,41 @@ def convert_matlabdatenum(matlab_datenum):
     dayfrac = dt.timedelta(days=matlab_datenum % 1) - dt.timedelta(days=366)
 
     return day + dayfrac
+
+
+def reorganize_data(data, w):
+    """Reorganize the data based on the lag conditions w.
+    Input:
+    data -- the original data [ndarray with shape(npts1, ndim)]
+    w -- the lag conditions [list]
+         e.g., [(0,-1), (1,-1), (2, -2)]
+    Output:
+    redata -- the reorganized data [ndarray with shape(npts2, len(w))]
+    """
+    npts1, ndim = data.shape
+
+    varset = [varlag[0] for varlag in w]
+    lagset = [-varlag[1] for varlag in w]  # Notice that the original lags are all negative values
+
+    maxlag = np.max(lagset)
+    npts2 = npts1 - maxlag
+    ndim2 = len(w)
+    redata = np.zeros([npts2, ndim2])
+
+    for i in range(ndim2):
+        var = varset[i]
+        lag = lagset[i]
+        # print var, lag, -maxlag+lag
+        if -maxlag+lag == 0:
+            redata[:, i] = data[lag:, var]
+        else:
+            redata[:, i] = data[lag:-maxlag+lag, var]
+
+    return redata
+
+if __name__ == '__main__':
+    # Test reorganize_data
+    data = np.array([[1,2,3,4,5,6,7,8,9],
+                     [1,2,3,4,15,6,7,8,9]]).T
+    w = [(0,-1), (0,-2), (1,0), (1,-3)]
+    print reorganize_data(data, w)

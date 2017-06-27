@@ -136,7 +136,7 @@ class info(object):
     def __computeInfoMD(self, pdfs):
         '''
         The function is aimed to compute the momentary interaction information at two paths and
-        its corresponding conditional partial inforamtion decomposition.
+        its corresponding momentary inforamtion partitioning.
         Compute I(X;Y|Z,W), I(X;Y|W), H(X|W), H(Y|W), I(X;Z|W), I(Y;Z|W)
                 II(X;Z;Y|W) = I(X;Y|Z,W) - I(X;Y|W)
                 Isc = I(X;Y|W) / min[H(X|W), H(Y|W)]

@@ -28,19 +28,25 @@ double get_time()
  * @param coordt [an array of the location of pdf to be estimated]
  * @param bd     [an array of bandwidths of the kernel]
  * @param No     [number of the given samples]
+ * @param Nt     [number of pdf to be estimated]
  * @param nvar   [number of variables]
  */
 __global__ void kernel(double *pdfset, double *coordo,
                        double *coordt, double *bd,
                        int No, int Nt, int nvar)
 {
-    double pdf = 0.;                               // the pdf of the ith location
+    double pdf;                               // the pdf of the ith location
     double prod_kern;                              // the kernel information of the ith location
     double u, kernel;                              // the kernel information of the ith location in the kth variable
     int i = blockIdx.x * blockDim.x + threadIdx.x; // the index of the ith location
     // int xi;                                        // the ith location
 
+    /* if (i >= blockDim.x*gridDim.x) { */
+    /*   return; */
+    /* } */
+
     while (i < Nt) {
+      pdf = 0.;
       for (int j = 0; j < No; j++)
       {
         prod_kern = 1.;
@@ -87,8 +93,8 @@ __global__ void kernel(double *pdfset, double *coordo,
 extern "C" {
 double *cuda_kde(int nvar, int Nt, int No, double *bd, double *coordo, double *coordt)
 {
-  int    blockWidth = 512;           // number of thread in each block
-  int    blocksX = Nt/blockWidth+1;  // number of block
+  /* int    blockWidth = 512;           // number of thread in each block */
+  /* int    blocksX = Nt/blockWidth+1;  // number of block */
   double *pdfset, *d_pdfset;         // the pdf array to be estimated
   double *d_coordo, *d_coordt;       // the coordo and coordt in GPU memory
   double *d_bd;                      // the bd in GPU memory
@@ -115,9 +121,10 @@ double *cuda_kde(int nvar, int Nt, int No, double *bd, double *coordo, double *c
   cudaMemset(d_pdfset, 0, Nt*sizeof(double));
 
   // Perform cuda KDE
-  const dim3 block_size(blockWidth, 1, 1);
-  const dim3 grid_size(blocksX, 1, 1);
+  /* const dim3 block_size(blockWidth, 1, 1); */
+  /* const dim3 grid_size(blocksX, 1, 1); */
   kernel<<<512,512>>>(d_pdfset, d_coordo, d_coordt, d_bd, No, Nt, nvar);
+  /* kernel<<<100,100>>>(d_pdfset, d_coordo, d_coordt, d_bd, No, Nt, nvar); */
 
   // Copy the device back to the host
   cudaMemcpy(pdfset, d_pdfset, Nt*sizeof(double), cudaMemcpyDeviceToHost);
