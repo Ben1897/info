@@ -292,7 +292,7 @@ def plot_ii1d(xset, iic, ii, itc, it, xlabel, ylabel, title):
     ax.set_title(title)
 
 
-def plot_pid(xv, yv, iic, rp, sp, uxp, uyp, xlabel, ylabel, vmin1, vmax1, option='MIP', prop=True):
+def plot_pid(xv, yv, iic, rp, sp, uxp, uyp, xlabel, ylabel, vmin1, vmax1, option='MPID', prop=True):
     '''Plot the all the information of PID.'''
     vmin, vmax = 0, 1
     labelpad = 20
@@ -314,8 +314,8 @@ def plot_pid(xv, yv, iic, rp, sp, uxp, uyp, xlabel, ylabel, vmin1, vmax1, option
     plt.colorbar(cs, ax=ax)
     ax.set_xlabel(xlabel, labelpad=labelpad)
     ax.set_ylabel(ylabel, labelpad=labelpad)
-    if option == 'MIP':
-        ax.set_title('GMII')
+    if option == 'MPID':
+        ax.set_title('MII-ICP')
     else:
         ax.set_title('II')
 
@@ -328,7 +328,7 @@ def plot_pid(xv, yv, iic, rp, sp, uxp, uyp, xlabel, ylabel, vmin1, vmax1, option
     ax.set_zlim([-.1, 1.1])
     ax.set_xlabel(xlabel, labelpad=labelpad)
     ax.set_ylabel(ylabel, labelpad=labelpad)
-    if option == 'MIP':
+    if option == 'MPID':
         ax.set_title(r'$R_c$ %s' % proptext)
     elif option == 'II':
         ax.set_title(r'$R$ %s' % proptext)
@@ -342,7 +342,7 @@ def plot_pid(xv, yv, iic, rp, sp, uxp, uyp, xlabel, ylabel, vmin1, vmax1, option
     ax.set_zlim([-.1, 1.1])
     ax.set_xlabel(xlabel, labelpad=labelpad)
     ax.set_ylabel(ylabel, labelpad=labelpad)
-    if option == 'MIP':
+    if option == 'MPID':
         ax.set_title(r'$S_c$ %s' % proptext)
     elif option == 'II':
         ax.set_title(r'$S$ %s' % proptext)
@@ -356,7 +356,7 @@ def plot_pid(xv, yv, iic, rp, sp, uxp, uyp, xlabel, ylabel, vmin1, vmax1, option
     ax.set_zlim([-.1, 1.1])
     ax.set_xlabel(xlabel, labelpad=labelpad)
     ax.set_ylabel(ylabel, labelpad=labelpad)
-    if option == 'MIP':
+    if option == 'MPID':
         ax.set_title(r'$U_{X,c}$ %s' % proptext)
     elif option == 'II':
         ax.set_title(r'$U_{X}$ %s' % proptext)
@@ -370,7 +370,7 @@ def plot_pid(xv, yv, iic, rp, sp, uxp, uyp, xlabel, ylabel, vmin1, vmax1, option
     ax.set_zlim([-.1, 1.1])
     ax.set_xlabel(xlabel, labelpad=labelpad)
     ax.set_ylabel(ylabel, labelpad=labelpad)
-    if option == 'MIP':
+    if option == 'MPID':
         ax.set_title(r'$U_{Y,c}$ %s' % proptext)
     elif option == 'II':
         ax.set_title(r'$U_{Y}$ %s' % proptext)

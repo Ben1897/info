@@ -20,13 +20,14 @@ class Logistic(object):
 
     allowedNoiseTypes = ['additive', 'multiplicative']
 
-    def __init__(self, n, adjM, lagM, e, ez, noiseType='additive',
+    def __init__(self, n, adjM, lagM, e, ez, a=4., noiseType='additive',
                  noiseDist=None, noisePara=None):
         """The initial function.
 
         n:         the number of variables [int]
         adjM:      the adjacent matrix [numpy array]
         lagM:      the lag matrix [numpy array]
+        a:         the logistic equation coefficient [float]
         e:         the coupling strength with the histories of other nodes
         ez:        the coupling strength with the noise
         noiseType: exclusive/ additive / multiplicative [string]
@@ -42,6 +43,7 @@ class Logistic(object):
         self.lagM      = lagM
         self.e         = e
         self.ez        = ez
+        self.a         = a
         self.checkMatrix()
 
         # if noiseOn is None:
@@ -98,18 +100,18 @@ class Logistic(object):
         noiseGenerator = self.noise.generator
 
         def getFunctionForVar(w, i):
-            e, ez = self.e, self.ez
+            e, ez, a = self.e, self.ez, self.a
             k = np.nonzero(w)[0].size
             if k != 0:
                 if self.noiseType == 'additive':
-                    return lambda x, i: (1-e)*logisticEqn(x[i]) + (1-ez)*e*sum([w[j]*logisticEqn(x[j]) for j in range(self.n)]) / k + e*ez*noiseGenerator()
+                    return lambda x, i: (1-e)*logisticEqn(x[i],a) + (1-ez)*e*sum([w[j]*logisticEqn(x[j],a) for j in range(self.n)]) / k + e*ez*noiseGenerator()
                 elif self.noiseType == 'multiplicative':
-                    return lambda x, i: (1-e)*logisticEqn(x[i]) + (1-ez)*e*sum([w[j]*logisticEqn(x[j]) for j in range(self.n)]) / k + e*ez*x[i]*noiseGenerator()
+                    return lambda x, i: (1-e)*logisticEqn(x[i],a) + (1-ez)*e*sum([w[j]*logisticEqn(x[j],a) for j in range(self.n)]) / k + e*ez*x[i]*noiseGenerator()
             else:
                 if self.noiseType == 'additive':
-                    return lambda x, i: (1-e)*logisticEqn(x[i]) + e*ez*noiseGenerator()
+                    return lambda x, i: (1-e)*logisticEqn(x[i],a) + e*ez*noiseGenerator()
                 elif self.noiseType == 'multiplicative':
-                    return lambda x, i: (1-e)*logisticEqn(x[i]) + e*ez*x*noiseGenerator()
+                    return lambda x, i: (1-e)*logisticEqn(x[i],a) + e*ez*x*noiseGenerator()
 
         # Create a list of functions
         self.funcs = list(map(getFunctionForVar, self.adjM, range(self.n)))
@@ -160,9 +162,10 @@ class Logistic(object):
         return x
 
 
-def logisticEqn(x):
+def logisticEqn(x, a):
     """The logistic equation."""
-    return 4*x*(1-x)
+    # return 4*x*(1-x)
+    return a*x*(1-x)
 
 
 if __name__ == '__main__':
