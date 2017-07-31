@@ -11,7 +11,7 @@ Jiang and Kumar PRE, in preparation (2017)
 import networkx as nx
 
 
-def search_mip_condition(causalDict, source1, source2, target, taumax=4, verbosity=1):
+def search_mpid_condition(causalDict, source1, source2, target, taumax=4, verbosity=1):
     '''
     Generate the condition of a MIP.
 
@@ -32,7 +32,9 @@ def search_mip_condition(causalDict, source1, source2, target, taumax=4, verbosi
     s2path -- the path from the second source node to the target node [list of sets]
     ps1path -- the parents of s1path [list of sets]
     ps2path -- the parents of s2path [list of sets]
-    w -- the condition of MIP [list of sets]
+    w -- the condition of the two causal paths [list of sets]
+    w1 -- the condition of the first causal path [list of sets]
+    w2 -- the condition of the second causal path [list of sets]
     '''
     # Convert causalDict to a dictionary with integer keys
     # mapvar, causalDictInt = convert_causalDict_to_int(causalDict)
@@ -74,6 +76,21 @@ def search_mip_condition(causalDict, source1, source2, target, taumax=4, verbosi
     # print tnode, pt
     # print s1path, s2path
 
+    # Generate w1
+    if s1path:
+        wset1 = exclude_intersection(pt, s1path)
+        w1 = union([wset1, ps1path])
+        print w1
+    else:
+        w1 = []
+
+    # Generate w2
+    if s2path:
+        wset1 = exclude_intersection(pt, s2path)
+        w2 = union([wset1, ps2path])
+    else:
+        w2 = []
+
     # Generate w
     if not s1path or not s2path:
         w = []
@@ -91,6 +108,8 @@ def search_mip_condition(causalDict, source1, source2, target, taumax=4, verbosi
     s1pathnested = [convert_nodes_to_listofset(path, nvar) for path in s1pathnested]
     s2path = convert_nodes_to_listofset(s2path, nvar)
     s2pathnested = [convert_nodes_to_listofset(path, nvar) for path in s2pathnested]
+    w1 = convert_nodes_to_listofset(w1, nvar)
+    w2 = convert_nodes_to_listofset(w2, nvar)
     w = convert_nodes_to_listofset(w, nvar)
 
     if verbosity > 0:
@@ -100,11 +119,15 @@ def search_mip_condition(causalDict, source1, source2, target, taumax=4, verbosi
         print '------- The causal path from the second source to the target is:'
         print s2pathnested
         print ''
-        print '------- The MIP condition includes:'
+        print '------- The condition of the first causal path includes:'
+        print w1
+        print '------- The condition of the second causal path includes:'
+        print w2
+        print '------- The MPID condition includes:'
         print w
         print ''
 
-    return pt, s1pathnested, s2pathnested, ps1path, ps2path, w
+    return pt, s1pathnested, s2pathnested, ps1path, ps2path, w, w1, w2
 
 
 # Help functions
@@ -203,5 +226,5 @@ if __name__ == '__main__':
     source1, source2 = (0, -1), (1, -1)
     target = (2, 0)
 
-    search_mip_condition(causalDict, source1, source2, target,
-                         taumax=5, verbosity=verbosity)
+    search_mpid_condition(causalDict, source1, source2, target,
+                          taumax=5, verbosity=verbosity)
