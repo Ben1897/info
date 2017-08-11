@@ -29,8 +29,10 @@ def search_mpid_condition(causalDict, source1, source2, target, taumax=4, sidepa
 
     Ouput:
     pt -- the parents of the target node [list of sets]
-    s1path -- the path from the first source node to the target node [list of sets]
-    s2path -- the path from the second source node to the target node [list of sets]
+    s1path -- the causal path from the first source node to the target node [list of sets]
+    s2path -- the causal path from the second source node to the target node [list of sets]
+    s1pathnested -- the causal path from the first source node to the target node (nested) [list of list of sets]
+    s2pathnested -- the causal path from the second source node to the target node (nested) [list of list of sets]
     w -- the condition of the two causal paths [list of sets]
     w1 -- the condition of the first causal path [list of sets]
     w2 -- the condition of the second causal path [list of sets]
@@ -139,7 +141,7 @@ def search_mpid_condition(causalDict, source1, source2, target, taumax=4, sidepa
         print w
         print ''
 
-    return pt, s1path, s2path, w, w1, w2
+    return pt, s1path, s2path, s1pathnested, s2pathnested, w, w1, w2
 
 
 # Help functions

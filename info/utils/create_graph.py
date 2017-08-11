@@ -120,7 +120,7 @@ if __name__ == '__main__':
     pt, s1path, s2path, ps1path, ps2path, w = search_mip_condition(causalDict, source1, source2, target)
 
     highlightednodes = [source1, source2, target]
-    highlightededges =  [s1path, s2path]
+    highlightededges = [s1path, s2path]
 
     g = create_ts_graph(causalDict, varnames, lagmax=lagmax,
                 highlightednodes=highlightednodes, highlightededges=highlightededges, engine='neato')

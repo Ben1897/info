@@ -20,35 +20,50 @@ from scipy.stats import entropy
 
 class info(object):
 
-    def __init__(self, pdfs, base=2):
+    def __init__(self, ndim, pdfs, base=2, conditioned=False, MPID2=False):
         '''
         Input:
-        pdf  -- a numpy array with ndim dimensions each of which has element nsample
-                note: ndim in the order of [1, 2, 3]
-                with shape (nsample1, nsample2, nsample3,...)
+        ndim -- the number of dimension to be computed [int]
+        pdfs  -- if MPID2 is False, a numpy array with ndim dimensions each of which has element nsample
+                          note: ndim in the order of [1, 2, 3]
+                          with shape (nsample1, nsample2, nsample3,...)
+                 if MPID2 is True, a list of three pdfs,
+                          each of which has the same format as the one when MPID2 is False
         base -- the logrithmatic base (the default is 2) [float/int]
+        conditioned -- whether including conditions [bool]
+        MPID2 -- whether calculating MPID2 [bool]
+                 if False, compute info by using computeInfo1D, computeInfo2D, computeInfo3D, computeInfoMD,
+                 if True, compute info by using computeInfoMD2
         '''
         self.base = base
 
-        # Check the number of variables is larger than 3 (i.e., ndim > 3)
-        ndim = np.size(pdfs.shape)
+        if MPID2:
+            try:
+                pdfs, pdfs1, pdfs2 = pdfs[0], pdfs[1], pdfs[2]
+            except:
+                raise Exception("Cannot parse pdfs properly when MPID2 is True.")
+            self.__computeInfoMD2(pdfs, pdfs1, pdfs2)
+            return
+
         self.ndim = ndim
 
         # 1D
-        if self.ndim == 1:
+        if self.ndim == 1 and not conditioned:
             self.__computeInfo1D(pdfs)
+        elif self.ndim == 1 and conditioned:
+            self.__computeInfo1D_conditioned(pdfs)
 
         # 2D
-        if self.ndim == 2:
+        if self.ndim == 2 and not conditioned:
             self.__computeInfo2D(pdfs)
+        elif self.ndim == 2 and conditioned:
+            self.__computeInfo2D_conditioned(pdfs)
 
         # 3D
-        if self.ndim == 3:
+        if self.ndim == 3 and not conditioned:
             self.__computeInfo3D(pdfs)
-
-        # ND
-        if self.ndim > 3:
-            self.__computeInfoMD(pdfs)
+        elif self.ndim == 3 and conditioned:
+            self.__computeInfo3D_conditioned(pdfs)
 
         # Assemble all the information values into a Pandas series format
         self.__assemble()
@@ -61,6 +76,23 @@ class info(object):
         Output: NoneType
         '''
         self.hx = computeEntropy(pdfs, base=self.base)
+
+    def __computeInfo1D_conditioned(self, pdfs):
+        '''
+        Compute H(X|W)
+        '''
+        # Compute the pdfs
+        shapes = pdfs.shape
+        ndims  = len(shapes)
+        nx, nws = shapes[0], shapes[1:]
+        wpdfs = np.sum(pdfs, axis=(0))   # p(w)
+        xpdfs = np.sum(pdfs, axis=tuple(range(1,ndims)))
+
+        # Compute all the entropies
+        self.hw    = computeEntropy(wpdfs.flatten(), base=self.base)    # H(W)
+        self.hx    = computeEntropy(xpdfs.flatten(), base=self.base)    # H(X)
+        self.hxw   = computeEntropy(pdfs.flatten(), base=self.base)   # H(X,W)
+        self.hx_w  = self.hxw - self.hw                # H(X|W)
 
     def __computeInfo2D(self, pdfs):
         '''
@@ -87,6 +119,36 @@ class info(object):
         # Compute I(X;Y)
         self.ixy = computeMutualInfo(xpdfs, ypdfs, pdfs, base=self.base)  # I(X;Y)
 
+    def __computeInfo2D_conditioned(self, pdfs):
+        '''
+        Compute H(X|W), H(Y|W), H(X,Y|W), I(X,Y|W)
+        '''
+        # Compute the pdfs
+        shapes = pdfs.shape
+        ndims  = len(shapes)
+        nx, ny, nws = shapes[0], shapes[1], shapes[2:]
+        wpdfs = np.sum(pdfs, axis=(0,1))   # p(w)
+        xwpdfs, ywpdfs = np.sum(pdfs, axis=(1)), np.sum(pdfs, axis=(0)) # p(x,w), p(y,w)
+        xpdfs, ypdfs = np.sum(pdfs, axis=tuple(range(1,ndims))), np.sum(pdfs, axis=tuple([0]+range(2,ndims)))
+        xypdfs = np.sum(pdfs, axis=tuple(range(2,ndims)))
+
+        # Compute all the entropies
+        self.hw    = computeEntropy(wpdfs.flatten(), base=self.base)    # H(W)
+        self.hx    = computeEntropy(xpdfs.flatten(), base=self.base)    # H(X)
+        self.hy    = computeEntropy(ypdfs.flatten(), base=self.base)    # H(Y)
+        self.hxy   = computeEntropy(xypdfs.flatten(), base=self.base)   # H(X,Y)
+        self.hxw   = computeEntropy(xwpdfs.flatten(), base=self.base)   # H(X,W)
+        self.hyw   = computeEntropy(ywpdfs.flatten(), base=self.base)   # H(Y,W)
+        self.hxyw  = computeEntropy(pdfs.flatten(), base=self.base)  # H(X,Y,W)
+        self.hx_w  = self.hxw - self.hw                # H(X|W)
+        self.hy_w  = self.hyw - self.hw                # H(Y|W)
+        self.hx_y  = self.hxy - self.hy
+        self.hy_x  = self.hxy - self.hx
+
+        # Compute all the conditional mutual information
+        self.ixy = self.hx - self.hx_y
+        self.ixy_w = self.hxw + self.hyw - self.hw - self.hxyw  # I(X;Y|W)
+
     def __computeInfo3D(self, pdfs):
         '''
         Compute H(X), H(Y), H(Z), I(Y;Z), I(X;Z), I(X;Y), I(Y,Z|X), I(X,Z|Y), II,
@@ -104,6 +166,10 @@ class info(object):
         self.hx = computeEntropy(xpdfs, base=self.base)  # H(X)
         self.hy = computeEntropy(ypdfs, base=self.base)  # H(Y)
         self.hz = computeEntropy(zpdfs, base=self.base)  # H(Z)
+        self.hxy = computeEntropy(xypdfs.flatten(), base=self.base)  # H(X,Y)
+        self.hyz = computeEntropy(yzpdfs.flatten(), base=self.base)  # H(Y,Z)
+        self.hxz = computeEntropy(xzpdfs.flatten(), base=self.base)  # H(X,Z)
+        self.hxyz = computeEntropy(pdfs.flatten(), base=self.base)  # H(X,Z)
 
         # Compute I(X;Z), I(Y;Z) and I(X;Y)
         self.ixz = computeMutualInfo(xpdfs, zpdfs, xzpdfs, base=self.base)  # I(X;Z)
@@ -133,7 +199,7 @@ class info(object):
         self.uxz = self.ixz - self.r  # U(X;Z) (Eq.(4) in Allison)
         self.uyz = self.iyz - self.r  # U(Y;Z) (Eq.(5) in Allison)
 
-    def __computeInfoMD(self, pdfs):
+    def __computeInfo3D_conditioned(self, pdfs):
         '''
         The function is aimed to compute the momentary interaction information at two paths and
         its corresponding momentary inforamtion partitioning.
@@ -157,6 +223,8 @@ class info(object):
         wpdfs = np.sum(pdfs, axis=(0,1,2))   # p(w)
         xwpdfs, ywpdfs, zwpdfs = np.sum(pdfs, axis=(1,2)), np.sum(pdfs, axis=(0,2)), np.sum(pdfs, axis=(0,1))  # p(x,w), p(y,w), p(z,w)
         xywpdfs, yzwpdfs, xzwpdfs = np.sum(pdfs, axis=(2)), np.sum(pdfs, axis=(0)), np.sum(pdfs, axis=(1))  # p(x,y,w), p(y,z,w), p(x,z,w)
+        xpdfs, ypdfs, zpdfs = np.sum(pdfs, axis=tuple(range(1,ndims))), np.sum(pdfs, axis=tuple([0]+range(2,ndims))), np.sum(pdfs, axis=tuple([0,1]+range(3,ndims)))
+        # xypdfs = np.sum(pdfs, axis=tuple(range(2,ndims)))
 
         # ## To be deleted
         # xpdfs, ypdfs, zpdfs = np.sum(pdfs, axis=(1,2,3)), np.sum(pdfs, axis=(0,2,3)), np.sum(pdfs, axis=(0,1,3))  # p(x), p(y), p(z)
@@ -173,6 +241,9 @@ class info(object):
 
         # Compute all the entropies
         self.hw    = computeEntropy(wpdfs.flatten(), base=self.base)    # H(W)
+        self.hx    = computeEntropy(xpdfs.flatten(), base=self.base)    # H(X)
+        self.hy    = computeEntropy(ypdfs.flatten(), base=self.base)    # H(Y)
+        self.hz    = computeEntropy(zpdfs.flatten(), base=self.base)    # H(Z)
         self.hxw   = computeEntropy(xwpdfs.flatten(), base=self.base)   # H(X,W)
         self.hyw   = computeEntropy(ywpdfs.flatten(), base=self.base)   # H(Y,W)
         self.hzw   = computeEntropy(zwpdfs.flatten(), base=self.base)   # H(Z,W)
@@ -206,7 +277,123 @@ class info(object):
 
         # Compute R(Z;X,Y|W)
         self.rmmi    = np.min([self.ixz_w, self.iyz_w])                # RMMIc
-        self.isource = self.ixy_w / np.min([self.hxw, self.hyw])       # Isc
+        # self.isource = self.ixy_w / np.min([self.hxw, self.hyw])       # Isc
+        self.isource = self.ixy_w / np.min([self.hx_w, self.hy_w])       # Isc
+        # self.isource = 0.       # Isc
+        self.rmin    = -self.ii if self.ii < 0 else 0                  # Rminc
+        self.r       = self.rmin + self.isource*(self.rmmi-self.rmin)  # Rc
+
+        # Compute S(Z;X,Y|W), U(Z;X|W) and U(Z;Y|W)
+        self.s = self.r + self.ii       # Sc
+        self.uxz = self.ixz_w - self.r  # U(X;Z|W)
+        self.uyz = self.iyz_w - self.r  # U(Y;Z|W)
+
+    def __computeInfoMD2(self, pdfs, pdfs1, pdfs2):
+        '''
+        The function is aimed to compute the momentary interaction information at two causal paths and
+        its corresponding momentary inforamtion partitioning, however, the
+        Compute
+                II(X;Z;Y|W) = I(X,Y;Z|W) - I(X;Z|W1) - I(Y;Z|W2)
+                Isc = I(X;Y|W) / min[H(X|W), H(Y|W)]
+                RMMIc = min[I(X;Z|W1), I(Y;Z|W2)]
+                Rminc = 0 if II > 0 else -II
+                Rc = Rminc + Isc*(RMMIc - Rminc)
+                Sc = II + Rc
+                Uxc = I(X;Z|W1) - Rc
+                Uyc = I(Y:Z|W2) - Rc
+        Input:
+        pdfs --  a numpy array with shape (nx, ny, nz, nw1, nw2, nw3,...)
+        Output: NoneType
+        '''
+
+        ################################################
+        # Compute I(X,Y;Z|W), I(X;Y|W), H(X|W), H(Y|W) #
+        ################################################
+        shapes = pdfs.shape
+        ndims  = len(shapes)
+        nx, ny, nz, nws = shapes[0], shapes[1], shapes[2], shapes[3:]
+        wpdfs = np.sum(pdfs, axis=(0,1,2))   # p(w)
+        xwpdfs, ywpdfs, zwpdfs = np.sum(pdfs, axis=(1,2)), np.sum(pdfs, axis=(0,2)), np.sum(pdfs, axis=(0,1))  # p(x,w), p(y,w), p(z,w)
+        xywpdfs, yzwpdfs, xzwpdfs = np.sum(pdfs, axis=(2)), np.sum(pdfs, axis=(0)), np.sum(pdfs, axis=(1))  # p(x,y,w), p(y,z,w), p(x,z,w)
+
+        # Compute all the entropies
+        hw    = computeEntropy(wpdfs.flatten(), base=self.base)    # H(W)
+        hxw   = computeEntropy(xwpdfs.flatten(), base=self.base)   # H(X,W)
+        hyw   = computeEntropy(ywpdfs.flatten(), base=self.base)   # H(Y,W)
+        hzw   = computeEntropy(zwpdfs.flatten(), base=self.base)   # H(Z,W)
+        hxyw  = computeEntropy(xywpdfs.flatten(), base=self.base)  # H(X,Y,W)
+        hxyzw = computeEntropy(pdfs.flatten(), base=self.base)     # H(X,Y,Z,W)
+
+        # Compute I(X,Y;Z|W), I(X;Y|W), H(X|W), H(Y|W)
+        self.hx_w = hxw - hw  # H(X|W)
+        self.hy_w = hyw - hw  # H(Y|W)
+        self.ixy_w = hxw + hyw - hw - hxyw  # I(X;Y|W)
+        self.itot = hxyw + hzw - hxyzw -hw # I(X,Y;Z|W)
+
+        ## (TODO: to be revised) Ensure that they are not negative
+        if self.ixy_w < 0 and np.abs(self.ixy_w / self.hw) < 1e-5:
+            self.ixy_w = 0.
+        if self.itot < 0 and np.abs(self.itot / self.hw) < 1e-5:
+            self.itot = 0.
+        if self.hx_w < 0 and np.abs(self.hx_w / self.hw) < 1e-5:
+            self.hx_w = 0.
+        if self.hy_w < 0 and np.abs(self.hy_w / self.hw) < 1e-5:
+            self.hy_w = 0.
+
+        #####################
+        # Compute I(X;Z|W1) #
+        #####################
+        shapes1 = pdfs1.shape
+        ndims1  = len(shapes1)
+        nx1, ny1, nz1, nws1 = shapes1[0], shapes1[1], shapes1[2], shapes1[3:]
+        wpdfs1 = np.sum(pdfs1, axis=(0,1,2))   # p(w)
+        xwpdfs1, ywpdfs1, zwpdfs1 = np.sum(pdfs1, axis=(1,2)), np.sum(pdfs1, axis=(0,2)), np.sum(pdfs1, axis=(0,1))  # p(x,w), p(y,w), p(z,w)
+        xywpdfs1, yzwpdfs1, xzwpdfs1 = np.sum(pdfs1, axis=(2)), np.sum(pdfs1, axis=(0)), np.sum(pdfs1, axis=(1))  # p(x,y,w), p(y,z,w), p(x,z,w)
+
+        # Compute all the entropies
+        hw    = computeEntropy(wpdfs1.flatten(), base=self.base)    # H(W)
+        hxw   = computeEntropy(xwpdfs1.flatten(), base=self.base)   # H(X,W)
+        hzw   = computeEntropy(zwpdfs1.flatten(), base=self.base)   # H(Z,W)
+        hxzw  = computeEntropy(xzwpdfs1.flatten(), base=self.base)  # H(X,Z,W)
+
+        # Compute I(X;Z|W1)
+        self.ixz_w = hxw + hzw - hw - hxzw  # I(X;Z|W1)
+
+        ## (TODO: to be revised) Ensure that they are not negative
+        if self.ixz_w < 0 and np.abs(self.ixz_w / self.hw) < 1e-5:
+            self.ixz_w = 0.
+
+        #####################
+        # Compute I(Y;Z|W2) #
+        #####################
+        shapes2 = pdfs2.shape
+        ndims2  = len(shapes2)
+        nx2, ny2, nz2, nws2 = shapes2[0], shapes2[1], shapes2[2], shapes2[3:]
+        wpdfs2 = np.sum(pdfs2, axis=(0,1,2))   # p(w)
+        xwpdfs2, ywpdfs2, zwpdfs2 = np.sum(pdfs2, axis=(1,2)), np.sum(pdfs2, axis=(0,2)), np.sum(pdfs2, axis=(0,1))  # p(x,w), p(y,w), p(z,w)
+        xywpdfs2, yzwpdfs2, xzwpdfs2 = np.sum(pdfs2, axis=(2)), np.sum(pdfs2, axis=(0)), np.sum(pdfs2, axis=(1))  # p(x,y,w), p(y,z,w), p(x,z,w)
+
+        # Compute all the entropies
+        hw    = computeEntropy(wpdfs2.flatten(), base=self.base)    # H(W)
+        hyw   = computeEntropy(ywpdfs2.flatten(), base=self.base)   # H(Y,W)
+        hzw   = computeEntropy(zwpdfs2.flatten(), base=self.base)   # H(Z,W)
+        hyzw  = computeEntropy(yzwpdfs2.flatten(), base=self.base)  # H(Y,Z,W)
+
+        # Compute I(Y;Z|W2)
+        self.iyz_w = hyw + hzw - hw - hxzw  # I(Y;Z|W2)
+
+        ## (TODO: to be revised) Ensure that they are not negative
+        if self.iyz_w < 0 and np.abs(self.iyz_w / self.hw) < 1e-5:
+            self.iyz_w = 0.
+
+        ################
+        # Compute MPID #
+        ################
+        self.ii = self.itot - self.ixz_w - self.iyz_w
+
+        # Compute R(Z;X,Y|W)
+        self.rmmi    = np.min([self.ixz_w, self.iyz_w])                # RMMIc
+        self.isource = self.ixy_w / np.min([self.hx_w, self.hy_w])       # Isc
         self.rmin    = -self.ii if self.ii < 0 else 0                  # Rminc
         self.r       = self.rmin + self.isource*(self.rmmi-self.rmin)  # Rc
 
