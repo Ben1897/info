@@ -171,6 +171,8 @@ class pdfComputer(object):
 
         # Estimate PDF
         pdf = estimator(ndim, bd, Nt=Nt, No=npts, coordo=data, coordt=coordt, dtype=float64)
+        # print pdf.nbytes, pdf[0], pdf[1]
+        # print np.count_nonzero(~np.isnan(pdf))
         pdf = pdf.reshape(nbins)
 
         # Normalize pdf again in case there is slice error

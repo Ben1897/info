@@ -11,7 +11,7 @@ Jiang and Kumar PRE, in preparation (2017)
 import networkx as nx
 
 
-def search_mpid_condition(causalDict, source1, source2, target, threeconditions=False, taumax=4, sidepath=False, verbosity=1):
+def search_mpid_condition(causalDict, source1, source2, target, taumax=4, sidepath=False, verbosity=1):
     '''
     Generate the condition of a MIP.
 
@@ -22,23 +22,20 @@ def search_mpid_condition(causalDict, source1, source2, target, threeconditions=
                   e.g., {0: [(0,-1), (1,-1)], 1: [(0,-2), (1,-1)]}
     source1 -- the first source node [set]
     source2 -- the second source node [set]
-    threeconditions -- the decision of calculating the conditions for the two causal paths (i.e., w1 and w2) [bool]
     target -- the target node [set]
     taumax -- the maximum time lag [int]
     sidepath -- the decision of including the sidepath effect [bool]
     verbosity -- the printing level [int]
 
-    Output:
+    Ouput:
     pt -- the parents of the target node [list of sets]
-    s1path -- the path from the first source node to the target node [list of sets]
-    s2path -- the path from the second source node to the target node [list of sets]
+    s1path -- the causal path from the first source node to the target node [list of sets]
+    s2path -- the causal path from the second source node to the target node [list of sets]
     s1pathnested -- the causal path from the first source node to the target node (nested) [list of list of sets]
     s2pathnested -- the causal path from the second source node to the target node (nested) [list of list of sets]
-    ps1path -- the parents of s1path [list of sets]
-    ps2path -- the parents of s2path [list of sets]
     w -- the condition of the two causal paths [list of sets]
-    w1 -- the condition of the first causal path empty if threeconditions is False [list of sets]
-    w2 -- the condition of the second causal path empty if threeconditions is False [list of sets]
+    w1 -- the condition of the first causal path [list of sets]
+    w2 -- the condition of the second causal path [list of sets]
     '''
     # Convert causalDict to a dictionary with integer keys
     # mapvar, causalDictInt = convert_causalDict_to_int(causalDict)
@@ -50,7 +47,7 @@ def search_mpid_condition(causalDict, source1, source2, target, threeconditions=
         print ''
 
     # Create an empty directed graph
-    g = nx.DiGraph()
+    g = nx.Graph()
 
     # Assign all the nodes into the directed graph
     var = causalDict.keys()
@@ -67,33 +64,37 @@ def search_mpid_condition(causalDict, source1, source2, target, threeconditions=
             for parent_neighbor in causalDict[j]:
                 isneighbor = is_neighbor(parent_neighbor)
                 start = get_node_number(parent_neighbor, nvar, gap)
-                if isneighbor:  # Here an undirected edge is miciced by two directed edges with the opposite directions
-                    g.add_edge(start, end, isneighbor=isneighbor)
-                    g.add_edge(end, start, isneighbor=isneighbor)
-                else:
-                    g.add_edge(start, end, isneighbor=isneighbor)
+                # print get_node_set(start, 4), get_node_set(end, 4), isneighbor
+                g.add_edge(start, end, start=start, end=end, isneighbor=isneighbor)
 
     # Generate pt, s1path, s2path
     tnode = get_node_number(target, nvar, 0)
     s1node = get_node_number(source1, nvar, 0)
     s2node = get_node_number(source2, nvar, 0)
-    # pt = g.predecessors(tnode)
-    pt = get_parents_from_nodes(g, [tnode])
+    pt = find_parents_from_nodes(g, [tnode])
     s1pathnested, ps1path, s1path, ps1sidepath, s1sidepath = get_path_nodes_and_their_parents(g, s1node, tnode)
     s2pathnested, ps2path, s2path, ps2sidepath, s2sidepath = get_path_nodes_and_their_parents(g, s2node, tnode)
 
     # Generate w1
-    if s1path and threeconditions:
+    if s1path and not sidepath:
         wset1 = exclude_intersection(pt, s1path)
         w1 = union([wset1, ps1path])
+    elif s1path and sidepath:
+        wset1 = exclude_intersection(pt, s1path)
+        w1 = union([wset1, ps1path, ps1sidepath, s1sidepath])
     else:
+        print "WARNING: the causal paths from the first source to the target is empty!"
         w1 = []
 
     # Generate w2
-    if s2path and threeconditions:
+    if s2path:
         wset1 = exclude_intersection(pt, s2path)
         w2 = union([wset1, ps2path])
+    elif s1path and sidepath:
+        wset2 = exclude_intersection(pt, s2path)
+        w2 = union([wset2, ps2path, ps2sidepath, s2sidepath])
     else:
+        print "WARNING: the causal paths from the second source to the target is empty!"
         w2 = []
 
     # Generate w
@@ -101,13 +102,11 @@ def search_mpid_condition(causalDict, source1, source2, target, threeconditions=
         print "WARNING: the causal paths from the two sources to the target is empty!"
         w = []
     elif not sidepath:
-        print "No sidepath is assumed."
         wset1 = exclude_intersection(pt, union([s1path, s2path]))
         wset2 = exclude_intersection(ps1path, s2path)
         wset3 = exclude_intersection(ps2path, s1path)
         w = union([wset1, wset2, wset3])
     elif sidepath:
-        print "Sidepath is assumed."
         wset1 = exclude_intersection(pt, union([s1path, s2path]))
         wset2 = exclude_intersection(ps1path, s2path)
         wset3 = exclude_intersection(ps2path, s1path)
@@ -120,8 +119,8 @@ def search_mpid_condition(causalDict, source1, source2, target, threeconditions=
     ps1path = convert_nodes_to_listofset(ps1path, nvar)
     ps2path = convert_nodes_to_listofset(ps2path, nvar)
     s1path = convert_nodes_to_listofset(s1path, nvar)
-    s1pathnested = [convert_nodes_to_listofset(path, nvar) for path in s1pathnested]
     s2path = convert_nodes_to_listofset(s2path, nvar)
+    s1pathnested = [convert_nodes_to_listofset(path, nvar) for path in s1pathnested]
     s2pathnested = [convert_nodes_to_listofset(path, nvar) for path in s2pathnested]
     w1 = convert_nodes_to_listofset(w1, nvar)
     w2 = convert_nodes_to_listofset(w2, nvar)
@@ -134,11 +133,10 @@ def search_mpid_condition(causalDict, source1, source2, target, threeconditions=
         print '------- The causal path from the second source to the target is:'
         print s2pathnested
         print ''
-        if threeconditions:
-            print '------- The condition of the first causal path includes:'
-            print w1
-            print '------- The condition of the second causal path includes:'
-            print w2
+        print '------- The condition of the first causal path includes:'
+        print w1
+        print '------- The condition of the second causal path includes:'
+        print w2
         print '------- The MPID condition includes:'
         print w
         print ''
@@ -180,21 +178,19 @@ def get_path_nodes_and_their_parents(g, snode, tnode):
     '''Get the path from s1node to tnode and the parents of the path given a graph g.'''
     # Get the causal paths and the neighbors of the source node
     # which locate in the contemporaneous paths
-    causalpaths, neighbors, causalpathsnested = get_causal_contemp_paths(g, snode, tnode)
+    causalpaths, neighbors, causalpathsnested = find_causal_contemp_paths(g, snode, tnode)
 
     # Get the parents of the causal paths and the contemporaneous neighbors
-    pcausalpaths = get_parents_from_nodes(g, causalpaths)
-    pneighbors = get_parents_from_nodes(g, neighbors)
-    # print pneighbors
-    # print pcausalpaths
+    pcausalpaths = find_parents_from_nodes(g, causalpaths)
+    pneighbors = find_parents_from_nodes(g, neighbors)
 
     return causalpathsnested, pcausalpaths, causalpaths, pneighbors, neighbors
 
 
-def get_causal_contemp_paths(g, snode, tnode):
+def find_causal_contemp_paths(g, snode, tnode):
     '''Find the causal paths from the source node to the target node, and
        find its neighbors which locate in the contemporaneous paths.
-       Return two lists of nodes:  causalpaths, neighbors, causalpathsnested'''
+       Return two lists of nodes:  causalpaths, neighbors'''
     # Get all the path from s1node to tnode
     pathall = nx.all_simple_paths(g, snode, tnode)
     pathall = list(pathall)
@@ -203,15 +199,15 @@ def get_causal_contemp_paths(g, snode, tnode):
     causalpaths = []
     contemppaths, neighbors = [], []
     for p in pathall:
-        iscausal, iscontemp = True, False
+        iscausal, iscontemp = True, True
         for i in range(len(p)-1):
             start, end = p[i], p[i+1]
-            edgeattr = g[start][end]
-            if edgeattr['isneighbor'] and i == 0:
-                iscausal, iscontemp = False, True
-                break
-            elif edgeattr['isneighbor'] and i != 0 and not iscontemp:
+            edgeattr = g.get_edge_data(start, end)
+            if edgeattr['isneighbor']:
                 iscausal = False
+            elif edgeattr['start'] != start:
+                iscausal, iscontemp = False, False
+                break
         if iscausal:
             causalpaths += [p]
         elif iscontemp:
@@ -227,15 +223,17 @@ def get_causal_contemp_paths(g, snode, tnode):
     return causalpaths_final, neighbors, causalpaths
 
 
-def get_parents_from_nodes(g, nodes):
+def find_parents_from_nodes(g, nodes):
     """ Return the parents of one or more nodes from graph g."""
     # Get the parents of the paths
     # (1) get the parents of each node in all the paths
     parents = []
     for end in nodes:
-        for start in g.predecessors(end):
+        for start in g.neighbors(end):
             edgeattr = g.get_edge_data(start, end)
-            if not edgeattr['isneighbor']:
+            if edgeattr['isneighbor'] or edgeattr['end'] != end:
+                continue
+            else:
                 parents += [start]
     parents = unique(parents)
     # (2) exclude the parents which are also the nodes in the paths
@@ -257,6 +255,7 @@ def intersect(a, b):
 def union(alist):
     """ return the union of multiple lists """
     return set().union(*alist)
+
 
 def exclude_intersection(a, b):
     """ return the subset of a which does not belong to b."""
@@ -283,15 +282,26 @@ def exclude_intersection(a, b):
 #     return varmap, causalDictInt
 
 if __name__ == '__main__':
-    causalDict = {0: [(1, 0), (3, -1)],
-                  # 1: [(3, -1)],
-                  1: [(2, -1)],
-                  2: [(0, -1), (1, -1), (3, -1)],
-                  3: [(3, -1)]}
+    causalDict = {0: [(3, -1)],
+                  1: [(3, -1)],
+                  2: [(0, -1), (1, -1), (2, -1)],
+                  3: []}
     verbosity = 1
 
-    source1, source2 = (0, -1), (3, -1)
+    source1, source2 = (0, -1), (1, -1)
     target = (2, 0)
 
-    search_mpid_condition(causalDict, source1, source2, target, threeconditions=True,
+    search_mpid_condition(causalDict, source1, source2, target,
+                          taumax=5, verbosity=verbosity)
+
+    causalDict = {0: [(2, 0), (3, -1)],
+                  1: [(3, -1)],
+                  2: [(0, 0), (0, -1), (1, -1), (2, -1)],
+                  3: []}
+    verbosity = 1
+
+    source1, source2 = (0, -1), (1, -1)
+    target = (2, 0)
+
+    search_mpid_condition(causalDict, source1, source2, target,
                           taumax=5, sidepath=True, verbosity=verbosity)

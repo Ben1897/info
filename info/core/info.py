@@ -4,11 +4,6 @@
 # 2D: H(X), H(Y), H(X|Y), H(Y|X), I(X;Y)
 # 3D: H(X1), H(Y), H(X2), I(X1;Y), I(X1;X2), I(X2;Y), T(Y->X), II, I(X1,Y;X2), R, S, U1, U2
 #
-# @AucomputeEhor: Peishi Jiang <Ben1897>
-# @Date:   2017-02-14T13:11:18-06:00
-# @Email:  shixijps@gmail.com
-# @Last modified by:   Ben1897
-# @Last modified time: 2017-02-22T21:30:56-06:00
 #
 # Ref:
 # Allison's SUR paper
@@ -20,7 +15,7 @@ from scipy.stats import entropy
 
 class info(object):
 
-    def __init__(self, ndim, pdfs, base=2, conditioned=False, MPID2=False):
+    def __init__(self, ndim, pdfs, base=2, conditioned=False, specific=False, MPID2=False):
         '''
         Input:
         ndim -- the number of dimension to be computed [int]
@@ -31,11 +26,14 @@ class info(object):
                           each of which has the same format as the one when MPID2 is False
         base -- the logrithmatic base (the default is 2) [float/int]
         conditioned -- whether including conditions [bool]
+        specific -- whether calculating the specific PID [bool]
         MPID2 -- whether calculating MPID2 [bool]
                  if False, compute info by using computeInfo1D, computeInfo2D, computeInfo3D, computeInfoMD,
                  if True, compute info by using computeInfoMD2
         '''
         self.base = base
+        self.conditioned = conditioned
+        self.specific = specific
 
         if MPID2:
             try:
@@ -60,8 +58,10 @@ class info(object):
             self.__computeInfo2D_conditioned(pdfs)
 
         # 3D
-        if self.ndim == 3 and not conditioned:
+        if self.ndim == 3 and not conditioned and not specific:
             self.__computeInfo3D(pdfs)
+        elif self.ndim == 3 and not conditioned and specific:
+            self.__computeInfo3D_specific(pdfs)
         elif self.ndim == 3 and conditioned:
             self.__computeInfo3D_conditioned(pdfs)
 
@@ -119,6 +119,11 @@ class info(object):
         # Compute I(X;Y)
         self.ixy = computeMutualInfo(xpdfs, ypdfs, pdfs, base=self.base)  # I(X;Y)
 
+        # self.hxy = computeEntropy(pdfs, base=self.base)
+        # print self.hy_x - (self.hxy - self.hx)
+        # print self.hx_y - (self.hxy - self.hy)
+        # print self.ixy - (self.hy + self.hx - self.hxy)
+
     def __computeInfo2D_conditioned(self, pdfs):
         '''
         Compute H(X|W), H(Y|W), H(X,Y|W), I(X,Y|W)
@@ -172,20 +177,24 @@ class info(object):
         self.hxyz = computeEntropy(pdfs.flatten(), base=self.base)  # H(X,Z)
 
         # Compute I(X;Z), I(Y;Z) and I(X;Y)
-        self.ixz = computeMutualInfo(xpdfs, zpdfs, xzpdfs, base=self.base)  # I(X;Z)
-        self.iyz = computeMutualInfo(ypdfs, zpdfs, yzpdfs, base=self.base)  # I(Y;Z)
-        self.ixy = computeMutualInfo(xpdfs, ypdfs, xypdfs, base=self.base)  # I(X;Y)
+        # self.ixz = computeMutualInfo(xpdfs, zpdfs, xzpdfs, base=self.base)  # I(X;Z)
+        # self.iyz = computeMutualInfo(ypdfs, zpdfs, yzpdfs, base=self.base)  # I(Y;Z)
+        # self.ixy = computeMutualInfo(xpdfs, ypdfs, xypdfs, base=self.base)  # I(X;Y)
+        self.ixy = self.hx + self.hy - self.hxy
+        self.ixz = self.hx + self.hz - self.hxz
+        self.iyz = self.hy + self.hz - self.hyz
 
         # Compute T (transfer entropy)
-        self.iyz_x = computeConditionalMutualInformation(pdfs, option=1, base=2.)  # I(Y,Z|X)
-        self.ixz_y = computeConditionalMutualInformation(pdfs, option=2, base=2.)  # I(X,Z|Y)
+        # self.iyz_x = computeConditionalMutualInformation(pdfs, option=1, base=2.)  # I(Y,Z|X)
+        # self.ixz_y = computeConditionalMutualInformation(pdfs, option=2, base=2.)  # I(X,Z|Y)
         # self.tyz = computeTransferEntropy(xpdfs, xzpdfs, xypdfs, pdfs, base=self.base)  # T(Y->Z|X)
         # self.txz = computeTransferEntropy(ypdfs, xypdfs, yzpdfs, pdfs, base=self.base)  # T(X->Z|Y).hx_w  = self.hxw - self.hw                # H(X|W)
         # self.tyz = computeTransferEntropy_old(zpdfs_x, zpdfs_xy, pdfs, base=self.base)
 
         # Compute II (= I(X;Y;Z))
-        self.ii = self.iyz_x - self.iyz
-        self.itot = self.ii + self.ixz + self.iyz
+        # self.ii = self.iyz_x - self.iyz
+        self.itot = self.hxy + self.hz - self.hxyz # I(X,Y;Z)
+        self.ii = self.itot - self.ixz - self.iyz  # interaction information
 
         # Compute R(Z;X,Y)
         self.rmmi    = np.min([self.ixz, self.iyz])               # RMMI (Eq.(7) in Allison)
@@ -198,6 +207,118 @@ class info(object):
         self.s = self.r + self.ii     # S (II = S - R)
         self.uxz = self.ixz - self.r  # U(X;Z) (Eq.(4) in Allison)
         self.uyz = self.iyz - self.r  # U(Y;Z) (Eq.(5) in Allison)
+
+
+    def __computeInfo3D_specific(self, pdfs):
+        '''
+        The function is aimed to compute the specific partial information decomposition.
+        Compute s(X=x,Y=y), r(X=x, Y=y), ux(X=x, Y=y), uy(X=x, Y=y)
+        Input:
+        pdfs --  a numpy array with shape (nx, ny, nz, nw1, nw2, nw3,...)
+        Output: NoneType
+        '''
+        base = self.base
+        nx, ny, nz = pdfs.shape
+        xpdfs, ypdfs, zpdfs    = np.sum(pdfs, axis=(1,2)), np.sum(pdfs, axis=(0,2)), np.sum(pdfs, axis=(0,1))  # p(x), p(y), p(z)
+        xypdfs, yzpdfs, xzpdfs = np.sum(pdfs, axis=(2)), np.sum(pdfs, axis=(0)), np.sum(pdfs, axis=(1))  # p(x,y), p(y,z), p(x,z)
+
+        # Compute the conditional probability and mask any nan values
+        xpdfs_ex = np.tile(xpdfs[:, np.newaxis], [1, nz])
+        ypdfs_ex = np.tile(ypdfs[:, np.newaxis], [1, nz])
+        xypdfs_ex = np.tile(xypdfs[:, :, np.newaxis], [1, 1, nz])
+        z_xpdfs, z_ypdfs = np.ma.divide(xzpdfs, xpdfs_ex).filled(0), np.ma.divide(yzpdfs, ypdfs_ex).filled(0)  # p(Z|X), p(Z|Y)
+        # print z_xpdfs
+        # print z_ypdfs
+        z_xypdfs = np.ma.divide(pdfs, xypdfs_ex).filled(0) # p(Z|X, Y)
+        # print z_xypdfs
+        xpdfs_ex2 = np.tile(xpdfs[np.newaxis, :], [nx, 1])
+        ypdfs_ex2 = np.tile(ypdfs[np.newaxis, :], [nx, 1])
+        x_ypdfs, y_xpdfs = np.ma.divide(xypdfs, xpdfs_ex2).filled(0), np.ma.divide(xypdfs, ypdfs_ex2).filled(0)  # p(X|Y), p(Y|X)
+
+        # Initialize the set for s, r, ux and uy
+        self.ss, self.rs = np.zeros([nx, ny]), np.zeros([nx, ny])
+        self.uxzs, self.uyzs = np.zeros([nx, ny]), np.zeros([nx, ny])
+        self.rmins, self.rmmis = np.zeros([nx, ny]), np.zeros([nx, ny])
+        self.isources = np.zeros([nx, ny])
+
+        # Initialize the specific mutual information and the specific interaction information
+        self.ixsz = np.zeros(nx)  # i(X=x;Z)
+        self.iysz = np.zeros(ny)  # i(Y=y;Z)
+        self.itots = np.zeros([nx, ny])  # i(X=x,Y=y;Z)
+        self.iis = np.zeros([nx, ny])  # ii(X=x;Y=y;Z)
+
+        # Compute the specific information
+        # Compute i(X=x; Z)
+        for x in range(nx):
+            z_xspdfs = z_xpdfs[x, :]  # P(Z|X=x)
+            # print z_xspdfs
+            # Compute the first term
+            plog1 = np.ma.log(z_xspdfs).filled(0) / np.log(base)
+            term1 = np.sum(z_xspdfs * plog1)
+            # Compute the second term
+            plog2 = np.ma.log(zpdfs).filled(0) / np.log(base)
+            term2 = np.sum(z_xspdfs * plog2)
+            self.ixsz[x] = term1 - term2
+
+        # Compute i(Y=y; Z)
+        for y in range(ny):
+            z_yspdfs = z_ypdfs[y, :]  # P(Z|Y=y)
+            # Compute the first term
+            plog1 = np.ma.log(z_yspdfs).filled(0) / np.log(base)
+            term1 = np.sum(z_yspdfs * plog1)
+            # Compute the second term
+            plog2 = np.ma.log(zpdfs).filled(0) / np.log(base)
+            term2 = np.sum(z_yspdfs * plog2)
+            self.iysz[y] = term1 - term2
+
+        # Compute i(X=x, Y=y; Z) and ii(X=x; Y=y; Z)
+        for x in range(nx):
+            for y in range(ny):
+                z_xyspdfs = z_xypdfs[x, y, :]  # P(Z|X=x, Y=y)
+                # Compute the first term
+                plog1 = np.ma.log(z_xyspdfs).filled(0) / np.log(base)
+                term1 = np.sum(z_xyspdfs * plog1)
+                # Compute the second term
+                plog2 = np.ma.log(zpdfs).filled(0) / np.log(base)
+                term2 = np.sum(z_xyspdfs * plog2)
+                # if x+1 == 1 and y+1 == 1:
+                #     print z_xyspdfs
+                #     print zpdfs
+                #     print z_xyspdfs * plog1 - z_xyspdfs * plog2
+                # if x+1 == 3 and y+1 == 4:
+                #     print z_xyspdfs
+                #     print zpdfs
+                #     print z_xyspdfs * plog1 - z_xyspdfs * plog2
+                self.itots[x, y] = term1 - term2
+                self.iis[x, y] = self.itots[x, y] - self.ixsz[x] - self.iysz[y]
+
+        # Compute the specific PID
+        for x in range(nx):
+            for y in range(ny):
+                # Compute rmin, rmmi
+                self.rmins[x, y] = 0. if self.iis[x, y] > 0  else -self.iis[x, y]
+                self.rmmis[x, y] = np.min([self.ixsz[x], self.iysz[y]])
+                # Compute isource
+                indicator = 0. if equal(xypdfs[x,y], xpdfs[x]*ypdfs[y]) else 1.
+                self.isources[x, y] = indicator * np.max([x_ypdfs[x, y], y_xpdfs[x, y]])
+                # Compute r
+                self.rs[x, y] = (1-self.isources[x, y]) * self.rmins[x, y] + self.isources[x, y] * self.rmmis[x, y]
+                # Compute s, uxz, uyz
+                self.ss[x, y] = self.iis[x, y] + self.rs[x, y]
+                self.uxzs[x, y] = self.ixsz[x] - self.rs[x, y]
+                self.uyzs[x, y] = self.iysz[y] - self.rs[x, y]
+
+        # Compute the expectation of SPID
+        self.r = np.sum(xypdfs*self.rs)
+        self.s = np.sum(xypdfs*self.ss)
+        self.uxz = np.sum(xypdfs*self.uxzs)
+        self.uyz = np.sum(xypdfs*self.uyzs)
+        self.rmin = np.sum(xypdfs*self.rmins)
+        self.rmmi = np.sum(xypdfs*self.rmmis)
+        self.isource = np.sum(xypdfs*self.isources)
+        self.itot = np.sum(xypdfs*self.itots)
+        self.ii = np.sum(xypdfs*self.iis)
+
 
     def __computeInfo3D_conditioned(self, pdfs):
         '''
@@ -415,7 +536,7 @@ class info(object):
         elif self.ndim == 3:
              self.allInfo = pd.Series([self.ii, self.itot, self.r, self.s, self.uxz, self.uyz,
                                        self.rmin, self.isource, self.rmmi],
-                                     index=['II', 'Itotal', 'R(Z;Y,X)', 'S(Z;Y,X)', 'U(Z,X)', 'U(Z,Y)',
+                                      index=['II', 'Itotal', 'R(Z;Y,X)', 'S(Z;Y,X)', 'U(Z,X)', 'U(Z,Y)',
                                             'Rmin', 'Isource', 'RMMI'])
             # self.allInfo = pd.Series([self.hx, self.hy, self.ixz, self.iyz, self.ixy,
             #                          self.iyz_x, self.ixz_y, self.ii, self.itot, self.rmin, self.isource, self.rmmi,
@@ -423,11 +544,21 @@ class info(object):
             #                          index=['H(X)', 'H(Y)', 'I(X;Z)', 'I(Y;Z)', 'I(X;Y)',
             #                                 'I(Y,Z|X)', 'I(X,Z|Y)', 'II', 'Itotal', 'Rmin', 'Isource', 'RMMI',
             #                                 'R(Z;Y,X)', 'S(Z;Y,X)', 'U(Z,X)', 'U(Z,Y)'])
-        else:
-            self.allInfo = pd.Series([self.ii, self.itot, self.r, self.s, self.uxz, self.uyz,
-                                      self.rmmi, self.isource, self.rmin],
-                                     index=['MIIT', 'Itotal', 'Rc', 'Sc', 'Uxc', 'Uyc',
-                                            'RMMIc', 'Isc', 'Rminc'])
+        # else:
+        #     self.allInfo = pd.Series([self.ii, self.itot, self.r, self.s, self.uxz, self.uyz,
+        #                               self.rmmi, self.isource, self.rmin],
+        #                              index=['MIIT', 'Itotal', 'Rc', 'Sc', 'Uxc', 'Uyc',
+        #                                     'RMMIc', 'Isc', 'Rminc'])
+
+##################
+# Help functions #
+##################
+def equal(a, b, e=1e-10):
+    '''Check whether the two numbers are equal'''
+    if abs(a-b) < e:
+        return True
+    else:
+        return False
 
 def computeEntropy(pdfs, base=2):
     '''Compute the entropy H(X).'''
