@@ -227,7 +227,153 @@ class info(object):
         ypdfs_ex = np.tile(ypdfs[:, np.newaxis], [1, nz])
         xypdfs_ex = np.tile(xypdfs[:, :, np.newaxis], [1, 1, nz])
         z_xpdfs, z_ypdfs = np.ma.divide(xzpdfs, xpdfs_ex).filled(0), np.ma.divide(yzpdfs, ypdfs_ex).filled(0)  # p(Z|X), p(Z|Y)
-        # print z_xpdfs
+        z_xypdfs = np.ma.divide(pdfs, xypdfs_ex).filled(0) # p(Z|X, Y)
+        xpdfs_ex2 = np.tile(xpdfs[np.newaxis, :], [nx, 1])
+        ypdfs_ex2 = np.tile(ypdfs[np.newaxis, :], [nx, 1])
+        x_ypdfs, y_xpdfs = np.ma.divide(xypdfs, xpdfs_ex2).filled(0), np.ma.divide(xypdfs, ypdfs_ex2).filled(0)  # p(X|Y), p(Y|X)
+
+        # Extend some pdfs to 3D
+        z_xpdfs, z_ypdfs = np.tile(z_xpdfs[:, np.newaxis, :], [1, ny, 1]), np.tile(z_ypdfs[np.newaxis, :, :], [nx, 1, 1])
+        xypdfs, yzpdfs, xzpdfs = np.tile(xypdfs[:, :, np.newaxis], [1, 1, nz]), np.tile(yzpdfs[np.newaxis, :, :], [nx, 1, 1]), \
+                                 np.tile(xzpdfs[:, np.newaxis, :], [1, ny, 1])
+        x_ypdfs, y_xpdfs = np.tile(x_ypdfs[:, :, np.newaxis], [1, 1, nz]), np.tile(y_xpdfs[:, :, np.newaxis], [1, 1, nz])
+        xpdfs, ypdfs, zpdfs = np.tile(xpdfs[:, np.newaxis, np.newaxis], [1, ny, nz]), np.tile(ypdfs[np.newaxis, :, np.newaxis], [nx, 1, nz]), \
+                              np.tile(zpdfs[np.newaxis, np.newaxis, :], [nx, ny, 1])
+
+        # Initialize the set for s, r, ux and uy
+        self.ss, self.rs = np.zeros([nx, ny]), np.zeros([nx, ny])
+        self.uxzs, self.uyzs = np.zeros([nx, ny]), np.zeros([nx, ny])
+        self.rmins, self.rmmis = np.zeros([nx, ny]), np.zeros([nx, ny])
+        self.isources = np.zeros([nx, ny])
+
+        # Initialize the specific mutual information and the specific interaction information
+        self.ixsz = np.zeros([nx, ny])  # I(X->Z)
+        self.iysz = np.zeros([nx, ny])  # I(Y->Z)
+        self.itots = np.zeros([nx, ny])  # I(X=x,Y=y;Z)
+        self.iis = np.zeros([nx, ny])  # II(X=x;Y=y;Z)
+
+        # Initialize some utility matrices
+        indicator1 = np.zeros([nx, ny])
+        indicator2 = np.zeros([nx, ny])
+        sign = np.zeros([nx, ny])
+
+        # Compute the specific contextual information
+        # Compute I(X->Z)
+        plog1 = np.ma.log(z_xpdfs).filled(0) / np.log(base)
+        term1 = np.sum(z_xypdfs*plog1, axis=2)
+        plog2 = np.ma.log(zpdfs).filled(0) / np.log(base)
+        term2 = np.sum(z_xypdfs*plog2, axis=2)
+        self.ixsz = term1 - term2
+        # for x in range(nx):
+        #     z_xspdfs = z_xpdfs[x, :]  # P(Z|X=x)
+        #     # print z_xspdfs
+        #     # Compute the first term
+        #     plog1 = np.ma.log(z_xspdfs).filled(0) / np.log(base)
+        #     term1 = np.sum(z_xspdfs * plog1)
+        #     # Compute the second term
+        #     plog2 = np.ma.log(zpdfs).filled(0) / np.log(base)
+        #     term2 = np.sum(z_xspdfs * plog2)
+        #     self.ixsz[x] = term1 - term2
+
+        # Compute I(Y->Z)
+        plog1 = np.ma.log(z_ypdfs).filled(0) / np.log(base)
+        term1 = np.sum(z_xypdfs*plog1, axis=2)
+        plog2 = np.ma.log(zpdfs).filled(0) / np.log(base)
+        term2 = np.sum(z_xypdfs*plog2, axis=2)
+        self.iysz = term1 - term2
+        # for y in range(ny):
+        #     z_yspdfs = z_ypdfs[y, :]  # P(Z|Y=y)
+        #     # Compute the first term
+        #     plog1 = np.ma.log(z_yspdfs).filled(0) / np.log(base)
+        #     term1 = np.sum(z_yspdfs * plog1)
+        #     # Compute the second term
+        #     plog2 = np.ma.log(zpdfs).filled(0) / np.log(base)
+        #     term2 = np.sum(z_yspdfs * plog2)
+        #     self.iysz[y] = term1 - term2
+
+        # Compute I(X=x, Y=y; Z) and II(X=x; Y=y; Z)
+        plog1 = np.ma.log(z_xypdfs).filled(0) / np.log(base)
+        term1 = np.sum(z_xypdfs*plog1, axis=2)
+        plog2 = np.ma.log(zpdfs).filled(0) / np.log(base)
+        term2 = np.sum(z_xypdfs*plog2, axis=2)
+        self.itots = term1 - term2
+        self.iis = self.itots - self.ixsz - self.iysz
+        # for x in range(nx):
+        #     for y in range(ny):
+        #         z_xyspdfs = z_xypdfs[x, y, :]  # P(Z|X=x, Y=y)
+        #         # Compute the first term
+        #         plog1 = np.ma.log(z_xyspdfs).filled(0) / np.log(base)
+        #         term1 = np.sum(z_xyspdfs * plog1)
+        #         # Compute the second term
+        #         plog2 = np.ma.log(zpdfs).filled(0) / np.log(base)
+        #         term2 = np.sum(z_xyspdfs * plog2)
+        #         # if x+1 == 1 and y+1 == 1:
+        #         #     print z_xyspdfs
+        #         #     print zpdfs
+        #         #     print z_xyspdfs * plog1 - z_xyspdfs * plog2
+        #         # if x+1 == 3 and y+1 == 4:
+        #         #     print z_xyspdfs
+        #         #     print zpdfs
+        #         #     print z_xyspdfs * plog1 - z_xyspdfs * plog2
+        #         self.itots[x, y] = term1 - term2
+        #         self.iis[x, y] = self.itots[x, y] - self.ixsz[x] - self.iysz[y]
+
+        # Compute the specific PID
+        indicator1[np.where(np.logical_not(equal(xypdfs[:,:,0], xpdfs[:,:,0]*ypdfs[:,:,0])))] = 1.  # indicate whether p(x) and p(y) are independent
+        self.isources = indicator1 * np.maximum(x_ypdfs[:,:,0], y_xpdfs[:,:,0])
+        indicator2[np.where(self.ixsz*self.iysz > 0)] = 1.  # indicate whether I(X->Z) and I(Y->Z) are different signs
+        sign = np.sign(self.ixsz)
+        self.rmmis = indicator2 * sign * np.minimum(np.abs(self.ixsz), np.abs(self.iysz))  # rb
+        self.rs = self.isources * self.rmmis
+        self.ss = self.iis + self.rs
+        self.uxzs = self.ixsz - self.rs
+        self.uyzs = self.iysz - self.rs
+        # for x in range(nx):
+        #     for y in range(ny):
+        #         # Compute rmin, rmmi
+        #         self.rmins[x, y] = 0. if self.iis[x, y] > 0  else -self.iis[x, y]
+        #         self.rmmis[x, y] = np.min([self.ixsz[x], self.iysz[y]])
+        #         # Compute isource
+        #         indicator = 0. if equal(xypdfs[x,y], xpdfs[x]*ypdfs[y]) else 1.
+        #         self.isources[x, y] = indicator * np.max([x_ypdfs[x, y], y_xpdfs[x, y]])
+        #         # Compute r
+        #         self.rs[x, y] = (1-self.isources[x, y]) * self.rmins[x, y] + self.isources[x, y] * self.rmmis[x, y]
+        #         # Compute s, uxz, uyz
+        #         self.ss[x, y] = self.iis[x, y] + self.rs[x, y]
+        #         self.uxzs[x, y] = self.ixsz[x] - self.rs[x, y]
+        #         self.uyzs[x, y] = self.iysz[y] - self.rs[x, y]
+
+        # Compute the expectation of SPID
+        self.r = np.sum(xypdfs[:,:,0]*self.rs)
+        self.s = np.sum(xypdfs[:,:,0]*self.ss)
+        self.uxz = np.sum(xypdfs[:,:,0]*self.uxzs)
+        self.uyz = np.sum(xypdfs[:,:,0]*self.uyzs)
+        self.rmin = np.sum(xypdfs[:,:,0]*self.rmins)
+        self.rmmi = np.sum(xypdfs[:,:,0]*self.rmmis)
+        self.isource = np.sum(xypdfs[:,:,0]*self.isources)
+        self.itot = np.sum(xypdfs[:,:,0]*self.itots)
+        self.ii = np.sum(xypdfs[:,:,0]*self.iis)
+
+
+    def __computeInfo3D_specific_wrong(self, pdfs):
+        '''
+        The function is aimed to compute the specific partial information decomposition.
+        Compute s(X=x,Y=y), r(X=x, Y=y), ux(X=x, Y=y), uy(X=x, Y=y)
+        Input:
+        pdfs --  a numpy array with shape (nx, ny, nz, nw1, nw2, nw3,...)
+        Output: NoneType
+        '''
+        base = self.base
+        nx, ny, nz = pdfs.shape
+        xpdfs, ypdfs, zpdfs    = np.sum(pdfs, axis=(1,2)), np.sum(pdfs, axis=(0,2)), np.sum(pdfs, axis=(0,1))  # p(x), p(y), p(z)
+        xypdfs, yzpdfs, xzpdfs = np.sum(pdfs, axis=(2)), np.sum(pdfs, axis=(0)), np.sum(pdfs, axis=(1))  # p(x,y), p(y,z), p(x,z)
+
+        # Compute the conditional probability and mask any nan values
+        xpdfs_ex = np.tile(xpdfs[:, np.newaxis], [1, nz])
+        ypdfs_ex = np.tile(ypdfs[:, np.newaxis], [1, nz])
+        xypdfs_ex = np.tile(xypdfs[:, :, np.newaxis], [1, 1, nz])
+        z_xpdfs, z_ypdfs = np.ma.divide(xzpdfs, xpdfs_ex).filled(0), np.ma.divide(yzpdfs, ypdfs_ex).filled(0)  # p(Z|X), p(Z|Y)
+        print z_xpdfs
         # print z_ypdfs
         z_xypdfs = np.ma.divide(pdfs, xypdfs_ex).filled(0) # p(Z|X, Y)
         # print z_xypdfs
@@ -555,10 +701,7 @@ class info(object):
 ##################
 def equal(a, b, e=1e-10):
     '''Check whether the two numbers are equal'''
-    if abs(a-b) < e:
-        return True
-    else:
-        return False
+    return np.abs(a - b) < e
 
 def computeEntropy(pdfs, base=2):
     '''Compute the entropy H(X).'''
