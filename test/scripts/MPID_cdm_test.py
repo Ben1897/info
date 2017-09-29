@@ -25,7 +25,7 @@ nx, ny, nz, nw = [20, 20, 20, 20]
 approach = 'kde_cuda'
 PLOT = 1
 # Figure folder
-figureFolder = './figures/'
+figureFolder = '/projects/users/pjiang6/figures/'
 
 ##############################################
 # miit for the nonlinear common driver model #
@@ -75,9 +75,9 @@ for i in range(ncwx):
 
         # compute pid
         # miit
-        pid1 = info(pdf1)
+        pid1 = info(ndim=3, pdfs=pdf1, base=np.e, conditioned=True)
         # ii
-        pid2 = info(pdf2)
+        pid2 = info(ndim=3, pdfs=pdf2, base=np.e)
 
         # get sur values
         rc[i,j], r[i,j]    = pid1.r, pid2.r
@@ -97,8 +97,8 @@ xlabel, ylabel = 'cwx', 'cwy'
 xlabeltex, ylabeltex = '$c_{WX}$', '$c_{WY}$'
 extent = [cwx_min, cwx_max, cwy_max, cwy_min]
 xv, yv = np.meshgrid(cwx_set, cwy_set, indexing='ij')
-small_size = 20
-medium_size = 25
+small_size = 30
+medium_size = 30
 bigger_size = 30
 
 plt.rc('text', usetex=True)              # usage of tex
@@ -136,9 +136,9 @@ if PLOT == 1:
     vmin, vmax = np.min([iic, ii]), np.max([iic, ii])
     # plot all the figures from GMII
     plot_pid(xv, yv, iic, rc/itc, sc/itc, uxc/itc, uyc/itc, xlabeltex, ylabeltex,
-             vmin1=vmin, vmax1=vmax, option='MIP', prop=True)
+             vmin1=vmin, vmax1=vmax, option='MPID', prop=True)
     # plt.tight_layout(pad=0)
-    plt.savefig(figureFolder + 'ncd_mip_prop.png', bbox_inches='tight', dpi=250)
+    plt.savefig(figureFolder + 'ncd_mpid_prop.png', bbox_inches='tight', dpi=250)
 
     # plot all the figures from II
     plot_pid(xv, yv, ii, r/it, s/it, ux/it, uy/it, xlabeltex, ylabeltex,
@@ -148,9 +148,9 @@ if PLOT == 1:
 
 #    # plot all the figures from GMII
     plot_pid(xv, yv, iic, rc, sc, uxc, uyc, xlabeltex, ylabeltex,
-             vmin1=vmin, vmax1=vmax, option='MIP', prop=False)
+             vmin1=vmin, vmax1=vmax, option='MPID', prop=False)
     # plt.tight_layout(pad=0)
-    plt.savefig(figureFolder + 'ncd_mip.png', bbox_inches='tight', dpi=250)
+    plt.savefig(figureFolder + 'ncd_mpid.png', bbox_inches='tight', dpi=250)
 
     # plot all the figures from II
     plot_pid(xv, yv, ii, r, s, ux, uy, xlabeltex, ylabeltex,

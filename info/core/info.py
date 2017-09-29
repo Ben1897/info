@@ -264,16 +264,6 @@ class info(object):
         plog2 = np.ma.log(zpdfs).filled(0) / np.log(base)
         term2 = np.sum(z_xypdfs*plog2, axis=2)
         self.ixsz = term1 - term2
-        # for x in range(nx):
-        #     z_xspdfs = z_xpdfs[x, :]  # P(Z|X=x)
-        #     # print z_xspdfs
-        #     # Compute the first term
-        #     plog1 = np.ma.log(z_xspdfs).filled(0) / np.log(base)
-        #     term1 = np.sum(z_xspdfs * plog1)
-        #     # Compute the second term
-        #     plog2 = np.ma.log(zpdfs).filled(0) / np.log(base)
-        #     term2 = np.sum(z_xspdfs * plog2)
-        #     self.ixsz[x] = term1 - term2
 
         # Compute I(Y->Z)
         plog1 = np.ma.log(z_ypdfs).filled(0) / np.log(base)
@@ -281,15 +271,6 @@ class info(object):
         plog2 = np.ma.log(zpdfs).filled(0) / np.log(base)
         term2 = np.sum(z_xypdfs*plog2, axis=2)
         self.iysz = term1 - term2
-        # for y in range(ny):
-        #     z_yspdfs = z_ypdfs[y, :]  # P(Z|Y=y)
-        #     # Compute the first term
-        #     plog1 = np.ma.log(z_yspdfs).filled(0) / np.log(base)
-        #     term1 = np.sum(z_yspdfs * plog1)
-        #     # Compute the second term
-        #     plog2 = np.ma.log(zpdfs).filled(0) / np.log(base)
-        #     term2 = np.sum(z_yspdfs * plog2)
-        #     self.iysz[y] = term1 - term2
 
         # Compute I(X=x, Y=y; Z) and II(X=x; Y=y; Z)
         plog1 = np.ma.log(z_xypdfs).filled(0) / np.log(base)
@@ -298,25 +279,6 @@ class info(object):
         term2 = np.sum(z_xypdfs*plog2, axis=2)
         self.itots = term1 - term2
         self.iis = self.itots - self.ixsz - self.iysz
-        # for x in range(nx):
-        #     for y in range(ny):
-        #         z_xyspdfs = z_xypdfs[x, y, :]  # P(Z|X=x, Y=y)
-        #         # Compute the first term
-        #         plog1 = np.ma.log(z_xyspdfs).filled(0) / np.log(base)
-        #         term1 = np.sum(z_xyspdfs * plog1)
-        #         # Compute the second term
-        #         plog2 = np.ma.log(zpdfs).filled(0) / np.log(base)
-        #         term2 = np.sum(z_xyspdfs * plog2)
-        #         # if x+1 == 1 and y+1 == 1:
-        #         #     print z_xyspdfs
-        #         #     print zpdfs
-        #         #     print z_xyspdfs * plog1 - z_xyspdfs * plog2
-        #         # if x+1 == 3 and y+1 == 4:
-        #         #     print z_xyspdfs
-        #         #     print zpdfs
-        #         #     print z_xyspdfs * plog1 - z_xyspdfs * plog2
-        #         self.itots[x, y] = term1 - term2
-        #         self.iis[x, y] = self.itots[x, y] - self.ixsz[x] - self.iysz[y]
 
         # Compute the specific PID
         indicator1[np.where(np.logical_not(equal(xypdfs[:,:,0], xpdfs[:,:,0]*ypdfs[:,:,0])))] = 1.  # indicate whether p(x) and p(y) are independent
@@ -328,20 +290,6 @@ class info(object):
         self.ss = self.iis + self.rs
         self.uxzs = self.ixsz - self.rs
         self.uyzs = self.iysz - self.rs
-        # for x in range(nx):
-        #     for y in range(ny):
-        #         # Compute rmin, rmmi
-        #         self.rmins[x, y] = 0. if self.iis[x, y] > 0  else -self.iis[x, y]
-        #         self.rmmis[x, y] = np.min([self.ixsz[x], self.iysz[y]])
-        #         # Compute isource
-        #         indicator = 0. if equal(xypdfs[x,y], xpdfs[x]*ypdfs[y]) else 1.
-        #         self.isources[x, y] = indicator * np.max([x_ypdfs[x, y], y_xpdfs[x, y]])
-        #         # Compute r
-        #         self.rs[x, y] = (1-self.isources[x, y]) * self.rmins[x, y] + self.isources[x, y] * self.rmmis[x, y]
-        #         # Compute s, uxz, uyz
-        #         self.ss[x, y] = self.iis[x, y] + self.rs[x, y]
-        #         self.uxzs[x, y] = self.ixsz[x] - self.rs[x, y]
-        #         self.uyzs[x, y] = self.iysz[y] - self.rs[x, y]
 
         # Compute the expectation of SPID
         self.r = np.sum(xypdfs[:,:,0]*self.rs)
@@ -544,8 +492,8 @@ class info(object):
 
         # Compute R(Z;X,Y|W)
         self.rmmi    = np.min([self.ixz_w, self.iyz_w])                # RMMIc
-        # self.isource = self.ixy_w / np.min([self.hxw, self.hyw])       # Isc
-        self.isource = self.ixy_w / np.min([self.hx_w, self.hy_w])       # Isc
+        self.isource = self.ixy_w / np.min([self.hxw, self.hyw])       # Isc
+        # self.isource = self.ixy_w / np.min([self.hx_w, self.hy_w])       # Isc
         # self.isource = 0.       # Isc
         self.rmin    = -self.ii if self.ii < 0 else 0                  # Rminc
         self.r       = self.rmin + self.isource*(self.rmmi-self.rmin)  # Rc

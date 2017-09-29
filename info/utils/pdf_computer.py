@@ -781,6 +781,9 @@ class pdfComputer(object):
                 xmin, xmax = limits[i][0], limits[i][1]
             else:
                 xmin, xmax = xarray.min(), xarray.max()
+            # print limits
+            # print xarray
+            # print xmin, xmax
             # Compute the coordinates
             if atom[i]:  # consider atom-at-zero: 1st bin is only for zero values, evenly space other bins
                 xedges[1:] = np.linspace(xmin, xmax, nx)
