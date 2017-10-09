@@ -396,3 +396,109 @@ def plot_pid(xv, yv, iic, rp, sp, uxp, uyp, xlabel, ylabel, zlabel='$[nats]$',
         ax.set_title(r'$U_{Y,c}$ %s' % proptext)
     elif option == 'II':
         ax.set_title(r'$U_{Y}$ %s' % proptext)
+
+# Plot state-dependent information metrics
+def plot_sdim(results, pdfxy, pdfx_y, pdfy_x, coordx, coordy,
+              nx, ny, xlabel='X', ylabel='Y'):
+    import seaborn as sns
+    c = 'blue'
+    xticks, yticks = [0, nx], [0, ny]
+    xticklabels = ['%.1f' % coordx[0], '%.1f' % coordx[-1]]
+    yticklabels = ['%.1f' % coordy[-1], '%.1f' % coordy[0]]
+    fig = plt.figure(figsize=(14, 5))
+    gs = gridspec.GridSpec(2, 4, height_ratios=[1,1], width_ratios=[1,1,1,1])
+    gs.update(wspace=0.4, hspace=0.5)
+
+    # Plot p(X=x;Y=y)
+    ax = fig.add_subplot(gs[0, 0])
+    ims = sns.heatmap(pdfxy,
+    #                   vmin=vmin, vmax=vmax,
+                      ax=ax)
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(xticklabels, rotation='horizontal')
+    ax.set_yticks(yticks)
+    ax.set_yticklabels(yticklabels, rotation='horizontal')
+    ax.set_ylabel(r'$'+ylabel+'$')
+    ax.set_xlabel(r'$'+xlabel+'$')
+    ax.set_title(r'$p(X=x,Y=y)$')
+    ax.grid(False)  # Get rid of the gridlines in seaborn
+
+    # Plot p(Y=y|X=x)
+    ax = fig.add_subplot(gs[0, 1])
+    ims = sns.heatmap(pdfy_x,
+                      ax=ax)
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(xticklabels, rotation='horizontal')
+    ax.set_yticks(yticks)
+    ax.set_yticklabels(yticklabels, rotation='horizontal')
+    ax.set_ylabel(r'$'+ylabel+'$')
+    ax.set_xlabel(r'$'+xlabel+'$')
+    ax.set_title(r'$p(Y=y|X=x)$')
+    ax.grid(False)  # Get rid of the gridlines in seaborn
+
+    # Plot p(X=x|Y=y)
+    ax = fig.add_subplot(gs[0, 2])
+    ims = sns.heatmap(pdfx_y,
+                      ax=ax)
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(xticklabels, rotation='horizontal')
+    ax.set_yticks(yticks)
+    ax.set_yticklabels(yticklabels, rotation='horizontal')
+    ax.set_ylabel(r'$'+ylabel+'$')
+    ax.set_xlabel(r'$'+xlabel+'$')
+    ax.set_title(r'$p(X=x|Y=y)$')
+    ax.grid(False)  # Get rid of the gridlines in seaborn
+
+    # Plot I(X=x,Y=y;Z)
+    ax = fig.add_subplot(gs[1, 0])
+    ims = sns.heatmap(results.itots, cbar_kws={'label':r'$(nat)$'},
+                      ax=ax)
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(xticklabels, rotation='horizontal')
+    ax.set_yticks(yticks)
+    ax.set_yticklabels(yticklabels, rotation='horizontal')
+    ax.set_ylabel(r'$'+ylabel+'$')
+    ax.set_xlabel(r'$'+xlabel+'$')
+    ax.set_title(r'$I(X=x,Y=y;Z)$')
+    ax.grid(False)  # Get rid of the gridlines in seaborn
+
+    # Plot II(X=x;Y=y;Z)
+    ax = fig.add_subplot(gs[1, 3])
+    ims = sns.heatmap(results.iis, cbar_kws={'label':r'$(nat)$'},
+                      ax=ax)
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(xticklabels, rotation='horizontal')
+    ax.set_yticks(yticks)
+    ax.set_yticklabels(yticklabels, rotation='horizontal')
+    ax.set_ylabel(r'$'+ylabel+'$')
+    ax.set_xlabel(r'$'+xlabel+'$')
+    ax.set_title(r'$II(X=x;Y=y;Z)$')
+    ax.grid(False)  # Get rid of the gridlines in seaborn
+
+    # Plot I(X->Z)
+    ax = fig.add_subplot(gs[1, 1])
+    ims = sns.heatmap(results.ixsz, cbar_kws={'label':r'$(nat)$'},
+                      ax=ax)
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(xticklabels, rotation='horizontal')
+    ax.set_yticks(yticks)
+    ax.set_yticklabels(yticklabels, rotation='horizontal')
+    ax.set_ylabel(r'$'+ylabel+'$')
+    ax.set_xlabel(r'$'+xlabel+'$')
+    ax.set_title(r'$I_{X->Z}(x,y)$')
+    ax.grid(False)  # Get rid of the gridlines in seaborn
+
+    # Plot I(Y->Z)
+    ax = fig.add_subplot(gs[1, 2])
+    ims = sns.heatmap(results.iysz, cbar_kws={'label':r'$(nat)$'},
+                      ax=ax)
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(xticklabels, rotation='horizontal')
+    ax.set_yticks(yticks)
+    ax.set_yticklabels(yticklabels, rotation='horizontal')
+    ax.set_ylabel(r'$'+ylabel+'$')
+    ax.set_xlabel(r'$'+xlabel+'$')
+    ax.set_title(r'$I_{Y->Z}(x,y)$')
+    ax.grid(False)  # Get rid of the gridlines in seaborn
+
+    return fig, gs
