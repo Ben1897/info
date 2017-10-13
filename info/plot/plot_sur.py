@@ -293,15 +293,20 @@ def plot_ii1d(xset, iic, ii, itc, it, xlabel, ylabel, title):
 
 
 def plot_pid(xv, yv, iic, rp, sp, uxp, uyp, xlabel, ylabel, zlabel='$[nats]$',
-             vmin=0, vmax=1, option='MPID', prop=True):
+             vmin=0, vmax=1, vertical=False, option='MPID', prop=True):
     '''Plot the all the information of PID.'''
     # vmin, vmax = 0, 1
     labelpad = 20
     extent = [xv.min(), xv.max(), yv.max(), yv.min()]
 
-    plt.figure(figsize=(40, 8))
-    gs = gridspec.GridSpec(1, 5)
-    gs.update(wspace=.1, hspace=.1)
+    if vertical:
+        plt.figure(figsize=(18, 30))
+        gs = gridspec.GridSpec(5, 1)
+        gs.update(wspace=.1, hspace=.2)
+    else:
+        plt.figure(figsize=(40,8))
+        gs = gridspec.GridSpec(1, 5)
+        gs.update(wspace=.1, hspace=.1)
 
     if prop:
         proptext = '(proption)'
@@ -319,79 +324,85 @@ def plot_pid(xv, yv, iic, rp, sp, uxp, uyp, xlabel, ylabel, zlabel='$[nats]$',
     #     ax.set_title(r'$MII-ICP$ %s' % proptext)
     # elif option == 'II':
     #     ax.set_title(r'$II$ %s' % proptext)
-    ax = plt.subplot(gs[0,0], projection='3d')
+    ax = plt.subplot(gs[0], projection='3d')
     ax.view_init(20, 225)
     cs = ax.plot_surface(xv, yv, iic, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
                          linewidth=0, antialiased=False)
+    plt.colorbar(cs, ax=ax)
     ax.set_zlim([-.1, 1.1])
     ax.set_xlabel(xlabel, labelpad=labelpad)
     ax.set_ylabel(ylabel, labelpad=labelpad)
     if not prop:
-        ax.set_zlabel(zlabel, labelpad=labelpad)
+        ax.zaxis.set_rotate_label(False)  # disable automatic rotation
+        ax.set_zlabel(zlabel, labelpad=labelpad, rotation=90)
     if option == 'MPID':
-        ax.set_title(r'$MII-ICP$ %s' % proptext)
+        ax.set_title(r'$MII-SCP$ %s' % proptext)
     elif option == 'II':
         ax.set_title(r'$II$ %s' % proptext)
 
     # Redundant information
-    ax = plt.subplot(gs[0,1], projection='3d')
+    ax = plt.subplot(gs[1], projection='3d')
     ax.view_init(20, 225)
     cs = ax.plot_surface(xv, yv, rp, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
                          linewidth=0, antialiased=False)
-    # plt.colorbar(cs, ax=ax)
+    plt.colorbar(cs, ax=ax)
     ax.set_zlim([-.1, 1.1])
     ax.set_xlabel(xlabel, labelpad=labelpad)
     ax.set_ylabel(ylabel, labelpad=labelpad)
     if not prop:
-        ax.set_zlabel(zlabel, labelpad=labelpad)
+        ax.zaxis.set_rotate_label(False)  # disable automatic rotation
+        ax.set_zlabel(zlabel, labelpad=labelpad, rotation=90)
     if option == 'MPID':
         ax.set_title(r'$R_c$ %s' % proptext)
     elif option == 'II':
         ax.set_title(r'$R$ %s' % proptext)
 
     # Synergistic information
-    ax = plt.subplot(gs[0,2], projection='3d')
+    ax = plt.subplot(gs[2], projection='3d')
     ax.view_init(20, 225)
     cs = ax.plot_surface(xv, yv, sp, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
                     linewidth=0, antialiased=False)
-    # plt.colorbar(cs, ax=ax)
+    plt.colorbar(cs, ax=ax)
     ax.set_zlim([-.1, 1.1])
     ax.set_xlabel(xlabel, labelpad=labelpad)
     ax.set_ylabel(ylabel, labelpad=labelpad)
     if not prop:
-        ax.set_zlabel(zlabel, labelpad=labelpad)
+        ax.zaxis.set_rotate_label(False)  # disable automatic rotation
+        ax.set_zlabel(zlabel, labelpad=labelpad, rotation=90)
     if option == 'MPID':
         ax.set_title(r'$S_c$ %s' % proptext)
     elif option == 'II':
         ax.set_title(r'$S$ %s' % proptext)
 
     # Unique information for x
-    ax = plt.subplot(gs[0,3], projection='3d')
+    ax = plt.subplot(gs[3], projection='3d')
     ax.view_init(20, 225)
     cs = ax.plot_surface(xv, yv, uxp, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
                          linewidth=0, antialiased=False)
-    # plt.colorbar(cs, ax=ax)
+    plt.colorbar(cs, ax=ax)
     ax.set_zlim([-.1, 1.1])
     ax.set_xlabel(xlabel, labelpad=labelpad)
     ax.set_ylabel(ylabel, labelpad=labelpad)
     if not prop:
-        ax.set_zlabel(zlabel, labelpad=labelpad)
+        ax.zaxis.set_rotate_label(False)  # disable automatic rotation
+        ax.set_zlabel(zlabel, labelpad=labelpad, rotation=90)
     if option == 'MPID':
         ax.set_title(r'$U_{X,c}$ %s' % proptext)
     elif option == 'II':
         ax.set_title(r'$U_{X}$ %s' % proptext)
 
     # Unique information for y
-    ax = plt.subplot(gs[0,4], projection='3d')
+    ax = plt.subplot(gs[4], projection='3d')
     ax.view_init(20, 225)
     cs = ax.plot_surface(xv, yv, uyp, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
                          linewidth=0, antialiased=False)
-    # plt.colorbar(cs, ax=ax)
+    plt.colorbar(cs, ax=ax)
     ax.set_zlim([-.1, 1.1])
     ax.set_xlabel(xlabel, labelpad=labelpad)
     ax.set_ylabel(ylabel, labelpad=labelpad)
     if not prop:
-        ax.set_zlabel(zlabel, labelpad=labelpad)
+        ax.zaxis.set_rotate_label(False)  # disable automatic rotation
+        ax.set_zlabel(zlabel, labelpad=labelpad, rotation=90)
     if option == 'MPID':
         ax.set_title(r'$U_{Y,c}$ %s' % proptext)
     elif option == 'II':
