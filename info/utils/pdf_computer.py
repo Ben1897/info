@@ -12,6 +12,18 @@ https://jakevdp.github.io/blog/2013/12/01/kernel-density-estimation/
 @Email:  shixijps@gmail.com
 
 class pdfComputer()
+    __init__()
+    computePDF()
+    computePDFmd()
+    computePDF1d()
+    computePDF2d()
+    computePDF3d()
+    computeBandWidth()
+    silverman()
+    crossvalidation()
+    __checkApproachPara()
+    __checkAtomAtZero()
+    __computeEdgeCoord()
 
 """
 

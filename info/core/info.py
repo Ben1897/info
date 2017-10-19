@@ -1,21 +1,42 @@
-# A class for calculating the statistical information
-#
-# 1D: H(X)
-# 2D: H(X), H(Y), H(X|Y), H(Y|X), I(X;Y)
-# 3D: H(X1), H(Y), H(X2), I(X1;Y), I(X1;X2), I(X2;Y), T(Y->X), II, I(X1,Y;X2), R, S, U1, U2
-#
-#
-# Ref:
-# Allison's SUR paper
+"""
+A class for calculating the statistical information.
+
+1D: H(X)
+2D: H(X), H(Y), H(X|Y), H(Y|X), I(X;Y)
+3D: H(X1), H(Y), H(X2), I(X1;Y), I(X1;X2), I(X2;Y), T(Y->X), II, I(X1,Y;X2), R, S, U1, U2
+
+class info()
+  __init__()
+  __computeInfo1D()
+  __computeInfo1D_conditioned()
+  __computeInfo2D()
+  __computeInfo2D_conditioned()
+  __computeInfo3D()
+  __computeInfo3D_specific()
+  __computeInfo3D_specific_wrong()
+  __computeInfo3D_conditioned()
+  __computeInfoMD2()
+  __assemble()
+
+equal()
+computeEntropy()
+computeConditionalInfo()
+computeMutualInfo()
+computeConditionalMutualInformation()
+
+Ref:
+Allison's SUR paper
+
+"""
 
 import numpy as np
 import pandas as pd
-from scipy.stats import entropy
+# from scipy.stats import entropy
 
 
 class info(object):
 
-    def __init__(self, ndim, pdfs, base=2, conditioned=False, specific=False, MPID2=False):
+    def __init__(self, ndim, pdfs, base=2, conditioned=False, specific=False, normalized=False, MPID2=False):
         '''
         Input:
         ndim -- the number of dimension to be computed [int]
@@ -27,6 +48,7 @@ class info(object):
         base -- the logrithmatic base (the default is 2) [float/int]
         conditioned -- whether including conditions [bool]
         specific -- whether calculating the specific PID [bool]
+        normalized --  whether the calculated info metrics need to be normalized [bool]
         MPID2 -- whether calculating MPID2 [bool]
                  if False, compute info by using computeInfo1D, computeInfo2D, computeInfo3D, computeInfoMD,
                  if True, compute info by using computeInfoMD2
@@ -34,6 +56,7 @@ class info(object):
         self.base = base
         self.conditioned = conditioned
         self.specific = specific
+        self.pdfs = pdfs
 
         if MPID2:
             try:
@@ -47,40 +70,43 @@ class info(object):
 
         # 1D
         if self.ndim == 1 and not conditioned:
-            self.__computeInfo1D(pdfs)
+            self.__computeInfo1D()
         elif self.ndim == 1 and conditioned:
-            self.__computeInfo1D_conditioned(pdfs)
+            self.__computeInfo1D_conditioned()
 
         # 2D
         if self.ndim == 2 and not conditioned:
             self.__computeInfo2D(pdfs)
         elif self.ndim == 2 and conditioned:
-            self.__computeInfo2D_conditioned(pdfs)
+            self.__computeInfo2D_conditioned()
 
         # 3D
         if self.ndim == 3 and not conditioned and not specific:
-            self.__computeInfo3D(pdfs)
+            self.__computeInfo3D()
         elif self.ndim == 3 and not conditioned and specific:
-            self.__computeInfo3D_specific(pdfs)
-        elif self.ndim == 3 and conditioned:
-            self.__computeInfo3D_conditioned(pdfs)
+            self.__computeInfo3D_specific()
+        elif self.ndim == 3 and conditioned and not specific:
+            self.__computeInfo3D_conditioned()
+        elif self.ndim == 3 and conditioned and specific:
+            self.__computeInfo3D_conditioned_specific()
 
         # Assemble all the information values into a Pandas series format
         self.__assemble()
 
-    def __computeInfo1D(self, pdfs):
+    def __computeInfo1D(self):
         '''
         Compute H(X)
         Input:
-        pdfs -- a numpy array with shape (nx,)
         Output: NoneType
         '''
+        pdfs = self.pdfs
         self.hx = computeEntropy(pdfs, base=self.base)
 
-    def __computeInfo1D_conditioned(self, pdfs):
+    def __computeInfo1D_conditioned(self):
         '''
         Compute H(X|W)
         '''
+        pdfs = self.pdfs
         # Compute the pdfs
         shapes = pdfs.shape
         ndims  = len(shapes)
@@ -94,13 +120,14 @@ class info(object):
         self.hxw   = computeEntropy(pdfs.flatten(), base=self.base)   # H(X,W)
         self.hx_w  = self.hxw - self.hw                # H(X|W)
 
-    def __computeInfo2D(self, pdfs):
+    def __computeInfo2D(self):
         '''
         Compute H(X), H(Y), H(X|Y), H(Y|X), I(X;Y)
         Input:
         pdfs --  a numpy array with shape (nx, ny)
         Output: NoneType
         '''
+        pdfs = self.pdfs
         nx, ny         = pdfs.shape
         xpdfs, ypdfs   = np.sum(pdfs, axis=1), np.sum(pdfs, axis=0)  # p(x), p(y)
         # ypdfs_x        = pdfs / np.tile(xpdfs[:, np.newaxis], (1, ny))  # p(y|x)
@@ -124,10 +151,11 @@ class info(object):
         # print self.hx_y - (self.hxy - self.hy)
         # print self.ixy - (self.hy + self.hx - self.hxy)
 
-    def __computeInfo2D_conditioned(self, pdfs):
+    def __computeInfo2D_conditioned(self):
         '''
         Compute H(X|W), H(Y|W), H(X,Y|W), I(X,Y|W)
         '''
+        pdfs = self.pdfs
         # Compute the pdfs
         shapes = pdfs.shape
         ndims  = len(shapes)
@@ -154,7 +182,7 @@ class info(object):
         self.ixy = self.hx - self.hx_y
         self.ixy_w = self.hxw + self.hyw - self.hw - self.hxyw  # I(X;Y|W)
 
-    def __computeInfo3D(self, pdfs):
+    def __computeInfo3D(self):
         '''
         Compute H(X), H(Y), H(Z), I(Y;Z), I(X;Z), I(X;Y), I(Y,Z|X), I(X,Z|Y), II,
                 I(X,Y;Z), R, S, U1, U2
@@ -163,6 +191,7 @@ class info(object):
         pdfs --  a numpy array with shape (nx, ny, nz)
         Output: NoneType
         '''
+        pdfs = self.pdfs
         nx, ny, nz = pdfs.shape
         xpdfs, ypdfs, zpdfs    = np.sum(pdfs, axis=(1,2)), np.sum(pdfs, axis=(0,2)), np.sum(pdfs, axis=(0,1))  # p(x), p(y), p(z)
         xypdfs, yzpdfs, xzpdfs = np.sum(pdfs, axis=(2)), np.sum(pdfs, axis=(0)), np.sum(pdfs, axis=(1))  # p(x,y), p(y,z), p(x,z)
@@ -208,8 +237,7 @@ class info(object):
         self.uxz = self.ixz - self.r  # U(X;Z) (Eq.(4) in Allison)
         self.uyz = self.iyz - self.r  # U(Y;Z) (Eq.(5) in Allison)
 
-
-    def __computeInfo3D_specific(self, pdfs):
+    def __computeInfo3D_specific(self):
         '''
         The function is aimed to compute the specific partial information decomposition.
         Compute s(X=x,Y=y), r(X=x, Y=y), ux(X=x, Y=y), uy(X=x, Y=y)
@@ -217,6 +245,7 @@ class info(object):
         pdfs --  a numpy array with shape (nx, ny, nz, nw1, nw2, nw3,...)
         Output: NoneType
         '''
+        pdfs = self.pdfs
         base = self.base
         nx, ny, nz = pdfs.shape
         xpdfs, ypdfs, zpdfs    = np.sum(pdfs, axis=(1,2)), np.sum(pdfs, axis=(0,2)), np.sum(pdfs, axis=(0,1))  # p(x), p(y), p(z)
@@ -302,8 +331,7 @@ class info(object):
         self.itot = np.sum(xypdfs[:,:,0]*self.itots)
         self.ii = np.sum(xypdfs[:,:,0]*self.iis)
 
-
-    def __computeInfo3D_specific_wrong(self, pdfs):
+    def __computeInfo3D_specific_wrong(self):
         '''
         The function is aimed to compute the specific partial information decomposition.
         Compute s(X=x,Y=y), r(X=x, Y=y), ux(X=x, Y=y), uy(X=x, Y=y)
@@ -311,6 +339,7 @@ class info(object):
         pdfs --  a numpy array with shape (nx, ny, nz, nw1, nw2, nw3,...)
         Output: NoneType
         '''
+        pdfs = self.pdfs
         base = self.base
         nx, ny, nz = pdfs.shape
         xpdfs, ypdfs, zpdfs    = np.sum(pdfs, axis=(1,2)), np.sum(pdfs, axis=(0,2)), np.sum(pdfs, axis=(0,1))  # p(x), p(y), p(z)
@@ -413,8 +442,7 @@ class info(object):
         self.itot = np.sum(xypdfs*self.itots)
         self.ii = np.sum(xypdfs*self.iis)
 
-
-    def __computeInfo3D_conditioned(self, pdfs):
+    def __computeInfo3D_conditioned(self):
         '''
         The function is aimed to compute the momentary interaction information at two paths and
         its corresponding momentary inforamtion partitioning.
@@ -431,7 +459,8 @@ class info(object):
         pdfs --  a numpy array with shape (nx, ny, nz, nw1, nw2, nw3,...)
         Output: NoneType
         '''
-        # Compute the pdfs
+        pdfs = self.pdfs
+        # Compute the marginal pdfs
         shapes = pdfs.shape
         ndims  = len(shapes)
         nx, ny, nz, nws = shapes[0], shapes[1], shapes[2], shapes[3:]
@@ -503,6 +532,9 @@ class info(object):
         self.uxz = self.ixz_w - self.r  # U(X;Z|W)
         self.uyz = self.iyz_w - self.r  # U(Y;Z|W)
 
+    def __computeInfo3D_conditioned_specific(self):
+        print 'not ready!'
+
     def __computeInfoMD2(self, pdfs, pdfs1, pdfs2):
         '''
         The function is aimed to compute the momentary interaction information at two causal paths and
@@ -520,7 +552,6 @@ class info(object):
         pdfs --  a numpy array with shape (nx, ny, nz, nw1, nw2, nw3,...)
         Output: NoneType
         '''
-
         ################################################
         # Compute I(X,Y;Z|W), I(X;Y|W), H(X|W), H(Y|W) #
         ################################################
@@ -622,27 +653,215 @@ class info(object):
         Assemble all the information values into a Pandas series format
         Output: NoneType
         '''
-        if self.ndim == 1:
-            self.allInfo = pd.Series(self.hx, index=['H(X)'])
-        elif self.ndim == 2:
+        if self.ndim == 1 and not self.conditioned:
+            self.allInfo = pd.Series(self.hx, index=['H(X)'], name='ordinary')
+
+        elif self.ndim == 1 and self.conditioned:
+            self.allInfo = pd.Series([self.hx, self.hx_w], index=['H(X)', 'H(X|W)'], name='ordinary')
+
+        elif self.ndim == 2 and not self.conditioned:
             self.allInfo = pd.Series([self.hx, self.hy, self.hx_y, self.hy_x, self.ixy],
-                                     index=['H(X)', 'H(Y)', 'H(X|Y)', 'H(Y|X)', 'I(X;Y)'])
-        elif self.ndim == 3:
-             self.allInfo = pd.Series([self.ii, self.itot, self.r, self.s, self.uxz, self.uyz,
-                                       self.rmin, self.isource, self.rmmi],
-                                      index=['II', 'Itotal', 'R(Z;Y,X)', 'S(Z;Y,X)', 'U(Z,X)', 'U(Z,Y)',
-                                            'Rmin', 'Isource', 'RMMI'])
-            # self.allInfo = pd.Series([self.hx, self.hy, self.ixz, self.iyz, self.ixy,
-            #                          self.iyz_x, self.ixz_y, self.ii, self.itot, self.rmin, self.isource, self.rmmi,
-            #                          self.r, self.s, self.uxz, self.uyz],
-            #                          index=['H(X)', 'H(Y)', 'I(X;Z)', 'I(Y;Z)', 'I(X;Y)',
-            #                                 'I(Y,Z|X)', 'I(X,Z|Y)', 'II', 'Itotal', 'Rmin', 'Isource', 'RMMI',
-            #                                 'R(Z;Y,X)', 'S(Z;Y,X)', 'U(Z,X)', 'U(Z,Y)'])
-        # else:
-        #     self.allInfo = pd.Series([self.ii, self.itot, self.r, self.s, self.uxz, self.uyz,
-        #                               self.rmmi, self.isource, self.rmin],
-        #                              index=['MIIT', 'Itotal', 'Rc', 'Sc', 'Uxc', 'Uyc',
-        #                                     'RMMIc', 'Isc', 'Rminc'])
+                                     index=['H(X)', 'H(Y)', 'H(X|Y)', 'H(Y|X)', 'I(X;Y)'],
+                                     name='ordinary')
+
+        elif self.ndim == 2 and self.conditioned:
+            self.allInfo = pd.Series([self.hx, self.hx_y, self.hxyw-self.hyw, self.ixy_w],
+                                     index=['H(X)', 'H(X|Y)', 'H(X|Y,W)', 'I(X;Y|W)'],
+                                     name='ordinary')
+
+        elif self.ndim == 3 and not self.conditioned:
+            self.allInfo = pd.Series([self.ixz, self.iyz, self.itot, self.ii, self.r, self.s, self.uxz, self.uyz, self.rmin, self.isource, self.rmmi],
+                                     index=['I(X;Z)', 'I(Y;Z)', 'I(X,Y;Z)', 'II', 'R(Z;Y,X)', 'S(Z;Y,X)', 'U(Z,X)', 'U(Z,Y)', 'Rmin', 'Isource', 'RMMI'],
+                                     name='ordinary')
+
+        elif self.ndim == 3 and self.conditioned:
+            self.allInfo = pd.Series([self.ixz_w, self.iyz_w, self.itot, self.ii, self.r, self.s, self.uxz, self.uyz, self.rmin, self.isource, self.rmmi],
+                                     index=['I(X;Z|W)', 'I(Y;Z|W)', 'I(X,Y;Z|W)', 'II', 'R(Z;Y,X|W)', 'S(Z;Y,X|W)', 'U(Z,X|W)', 'U(Z,Y|W)', 'Rmin', 'Isource', 'RMMI'],
+                                     name='ordinary')
+
+    def normalizeinfo(self):
+        """
+        Normalize the calculated information metrics in terms of both percentage and magnitude.
+
+        Note that for 2D and 3D, the magnitude-based normalization emphasizes the amount of information transfer
+        given by the source(s) to the target Y compared with the information of Y itself. Therefore, the scaling base
+        is H(Z). Meanwhile, the percentage-based normalization scales the metrics in terms of the joint uncerntainty
+        of the source(s) and the target Z with the condition considered. Therefore, the scaling base is the joint entropy which
+        is conditioned if the condition W exists.
+
+        For 1D, (i.e., X with the condition W), the scaling bases are:
+            unconditioned:              Hmax(X) = log(Nx)/log(base)
+            conditioned (percentage):   H(X)
+            conditioned (magnitude):    Hmax(X,W) = log(Nx*Nw)/log(base)
+        For 2D, (i.e., X (source) and Y (target) with the condition W),the scaling bases are:
+            unconditioned (percentage): H(X,Y)
+            unconditioned (magnitude):  H(Y)
+            conditioned (percentage):   H(X,Y|W)
+            conditioned (magnitude):    H(Y)
+        For 3D, (i.e., X, Y (sources) and Z (target) with the condition W),the scaling bases are:
+            unconditioned (percentage): H(X,Y,Z)
+            unconditioned (magnitude):  H(Z)
+            conditioned (percentage):   H(X,Y,Z|W)
+            conditioned (magnitude):    H(Z)
+        """
+        base, pdfs = self.base, self.pdfs
+
+        # Check whether it is the specific information and return None if yes
+        if self.specific:
+            print "The specific information is not considered for normalization yet!"
+            return
+
+        # 1D - unconditioned
+        # unconditioned: Hmax(X) = log(Nx)/log(base)
+        if self.ndim == 1 and not self.conditioned:
+            nx           = len(pdfs)
+            scalingbase  = np.log(nx) / np.log(base)
+            self.hx_norm = self.hx / scalingbase
+            # assemble it to pandas series
+            norm_df = pd.Series(self.hx_norm, index=['H(X)'], name='norm')
+
+        # 1D - conditioned
+        # conditioned (percentage): H(X)
+        # conditioned (magnitude):  Hmax(X,W) = log(Nx*Nw)/log(base)
+        if self.ndim == 1 and self.conditioned:
+            shapes          = pdfs.shape
+            nx, nw          = shapes[0], np.prod(shapes[1:])
+            # percentage
+            scalingbase_p   = self.hx
+            self.hx_w_normp = self.hx_w / scalingbase_p
+            # magnitude
+            scalingbase_m   = np.log(nx*nw) / np.log(base)
+            self.hx_w_normm = self.hx_w / scalingbase_m
+            # assemble them to pandas series
+            norm_p_df = pd.Series(self.hx_w_normp, index=['H(X|W)'], name='norm_p')
+            norm_m_df = pd.Series(self.hx_w_normm, index=['H(X|W)'], name='norm_m')
+
+        # 2D - unconditioned
+        # X: source, Y: target
+        # unconditioned (percentage): H(X,Y)
+        # unconditioned (magnitude):  H(Y)
+        if self.ndim == 2 and not self.conditioned:
+            # percentage
+            scalingbase_p   = self.hx_y + self.hy   # H(X,Y)
+            self.hx_y_normp = self.hx_y / scalingbase_p
+            self.ixy_normp  = self.ixy / scalingbase_p
+            # magnitude
+            scalingbase_m   = self.hy               # H(Y)
+            self.hx_y_normm = self.hx_y / scalingbase_m
+            self.ixy_normm  = self.ixy / scalingbase_m
+            # assemble them to pandas series
+            norm_p_df = pd.Series([self.hx_y_normp, self.ixy_normp],
+                                  index=['H(X|Y)', 'I(X;Y)'], name='norm_p')
+            norm_m_df = pd.Series([self.hx_y_normm, self.ixy_normm],
+                                  index=['H(X|Y)', 'I(X;Y)'], name='norm_m')
+
+        # 2D - conditioned
+        # X: source, Y: target, W: condition
+        # conditioned (percentage): H(X,Y|W)
+        # conditioned (magnitude):  H(Y)
+        if self.ndim == 2 and self.conditioned:
+            # percentage
+            scalingbase_p    = self.hxyw - self.hw   # H(X,Y|W)
+            self.hx_yw_normp = (self.hxyw - self.hyw) / scalingbase_p
+            self.ixy_w_normp = self.ixy_w / scalingbase_p
+            # magnitude
+            scalingbase_m    = self.hy               # H(Y)
+            self.hx_yw_normm = (self.hxyw - self.hyw) / scalingbase_m
+            self.ixy_w_normm = self.ixy_w / scalingbase_m
+            # assemble them to pandas series
+            norm_p_df = pd.Series([self.hx_yw_normp, self.ixy_w_normp],
+                                  index=['H(X|Y,W)', 'I(X;Y|W)'], name='norm_p')
+            norm_m_df = pd.Series([self.hx_yw_normm, self.ixy_w_normm],
+                                  index=['H(X|Y,W)', 'I(X;Y|W)'], name='norm_m')
+
+        # 3D - unconditioned
+        # X, Y: sourceS, Z: target
+        # unconditioned (percentage): H(X,Y,Z)
+        # unconditioned (magnitude):  H(Z)
+        if self.ndim == 3 and not self.conditioned:
+            # percentage
+            scalingbase_p   = self.hxyz               # H(X,Y,Z)
+            self.ixz_normp  = self.ixz / scalingbase_p
+            self.iyz_normp  = self.iyz / scalingbase_p
+            self.itot_normp = self.itot / scalingbase_p
+            self.ii_normp   = self.ii / scalingbase_p
+            self.r_normp    = self.r / scalingbase_p
+            self.s_normp    = self.s/ scalingbase_p
+            self.uxz_normp  = self.uxz / scalingbase_p
+            self.uyz_normp  = self.uyz / scalingbase_p
+            self.rmin_normp = self.rmin / scalingbase_p
+            self.isource_normp = self.isource / scalingbase_p
+            self.rmmi_normp = self.rmmi / scalingbase_p
+            # magnitude
+            scalingbase_m   = self.hz                 # H(Z)
+            self.ixz_normm  = self.ixz / scalingbase_m
+            self.iyz_normm  = self.iyz / scalingbase_m
+            self.itot_normm = self.itot / scalingbase_m
+            self.ii_normm   = self.ii / scalingbase_m
+            self.r_normm    = self.r / scalingbase_m
+            self.s_normp    = self.s/ scalingbase_m
+            self.uxz_normm  = self.uxz / scalingbase_m
+            self.uyz_normm  = self.uyz / scalingbase_m
+            self.rmin_normm = self.rmin / scalingbase_m
+            self.isource_normm = self.isource / scalingbase_m
+            self.rmmi_normm = self.rmmi / scalingbase_m
+            # assemble them to pandas series
+            norm_p_df = pd.Series([self.ixz_normp, self.iyz_normp, self.itot_normp, self.ii_normp, self.r_normp, self.s_normp,
+                                   self.uxz_normp, self.uyz_normp, self.rmin_normp, self.isource_normp, self.rmmi_normp],
+                                  index=['I(X;Z)', 'I(Y;Z)', 'I(X,Y;Z)', 'II', 'R(Z;Y,X)', 'S(Z;Y,X)', 'U(Z,X)', 'U(Z,Y)', 'Rmin', 'Isource', 'RMMI'],
+                                  name='norm_p')
+            norm_m_df = pd.Series([self.ixz_normm, self.iyz_normm, self.itot_normm, self.ii_normm, self.r_normm, self.s_normm,
+                                   self.uxz_normm, self.uyz_normm, self.rmin_normm, self.isource_normm, self.rmmi_normm],
+                                  index=['I(X;Z)', 'I(Y;Z)', 'I(X,Y;Z)', 'II', 'R(Z;Y,X)', 'S(Z;Y,X)', 'U(Z,X)', 'U(Z,Y)', 'Rmin', 'Isource', 'RMMI'],
+                                  name='norm_m')
+
+        # 3D - conditioned
+        # X, Y: sourceS, Z: target, W: condition
+        # conditioned (percentage):   H(X,Y,Z|W)
+        # conditioned (magnitude):    H(Z)
+        if self.ndim == 3 and self.conditioned:
+            # percentage
+            scalingbase_p    = self.hxyzw - self.hw    # H(X,Y,Z|W)
+            self.ixz_w_normp = self.ixz_w / scalingbase_p
+            self.iyz_w_normp = self.iyz_w / scalingbase_p
+            self.itot_normp  = self.itot / scalingbase_p
+            self.ii_normp    = self.ii / scalingbase_p
+            self.r_normp     = self.r / scalingbase_p
+            self.s_normp     = self.s/ scalingbase_p
+            self.uxz_normp   = self.uxz / scalingbase_p
+            self.uyz_normp   = self.uyz / scalingbase_p
+            self.rmin_normp = self.rmin / scalingbase_p
+            self.isource_normp = self.isource / scalingbase_p
+            self.rmmi_normp = self.rmmi / scalingbase_p
+            # magnitude
+            scalingbase_m    = self.hz                 # H(Z)
+            self.ixz_w_normm = self.ixz_w / scalingbase_m
+            self.iyz_w_normm = self.iyz_w / scalingbase_m
+            self.itot_normm  = self.itot / scalingbase_m
+            self.ii_normm    = self.ii / scalingbase_m
+            self.r_normm     = self.r / scalingbase_m
+            self.s_normp     = self.s/ scalingbase_m
+            self.uxz_normm   = self.uxz / scalingbase_m
+            self.uyz_normm   = self.uyz / scalingbase_m
+            self.rmin_normm = self.rmin / scalingbase_m
+            self.isource_normm = self.isource / scalingbase_m
+            self.rmmi_normm = self.rmmi / scalingbase_m
+            # assemble them to pandas series
+            norm_p_df = pd.Series([self.ixz_w_normp, self.iyz_w_normp, self.itot_normp, self.ii_normp, self.r_normp, self.s_normp,
+                                   self.uxz_normp, self.uyz_normp, self.rmin_normp, self.isource_normp, self.rmmi_normp],
+                                  index=['I(X;Z|W)', 'I(Y;Z|W)', 'I(X,Y;Z|W)', 'II', 'R(Z;Y,X|W)', 'S(Z;Y,X|W)', 'U(Z,X|W)', 'U(Z,Y|W)', 'Rmin', 'Isource', 'RMMI'],
+                                  name='norm_p')
+            norm_m_df = pd.Series([self.ixz_w_normm, self.iyz_w_normm, self.itot_normm, self.ii_normm, self.r_normm, self.s_normm,
+                                   self.uxz_normm, self.uyz_normm, self.rmin_normm, self.isource_normm, self.rmmi_normm],
+                                  index=['I(X;Z|W)', 'I(Y;Z|W)', 'I(X,Y;Z|W)', 'II', 'R(Z;Y,X|W)', 'S(Z;Y,X|W)', 'U(Z,X|W)', 'U(Z,Y|W)', 'Rmin', 'Isource', 'RMMI'],
+                                  name='norm_m')
+
+        # Assemble all the information metrics
+        if self.ndim == 1 and not self.conditioned:
+            self.allInfo = pd.concat([self.allInfo, norm_df], axis=1)
+        else:
+            self.allInfo = pd.concat([self.allInfo, norm_p_df, norm_m_df], axis=1)
+
 
 ##################
 # Help functions #
