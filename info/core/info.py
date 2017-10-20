@@ -76,7 +76,7 @@ class info(object):
 
         # 2D
         if self.ndim == 2 and not conditioned:
-            self.__computeInfo2D(pdfs)
+            self.__computeInfo2D()
         elif self.ndim == 2 and conditioned:
             self.__computeInfo2D_conditioned()
 
@@ -799,7 +799,7 @@ class info(object):
             self.itot_normm = self.itot / scalingbase_m
             self.ii_normm   = self.ii / scalingbase_m
             self.r_normm    = self.r / scalingbase_m
-            self.s_normp    = self.s/ scalingbase_m
+            self.s_normm    = self.s/ scalingbase_m
             self.uxz_normm  = self.uxz / scalingbase_m
             self.uyz_normm  = self.uyz / scalingbase_m
             self.rmin_normm = self.rmin / scalingbase_m
@@ -840,7 +840,7 @@ class info(object):
             self.itot_normm  = self.itot / scalingbase_m
             self.ii_normm    = self.ii / scalingbase_m
             self.r_normm     = self.r / scalingbase_m
-            self.s_normp     = self.s/ scalingbase_m
+            self.s_normm     = self.s/ scalingbase_m
             self.uxz_normm   = self.uxz / scalingbase_m
             self.uyz_normm   = self.uyz / scalingbase_m
             self.rmin_normm = self.rmin / scalingbase_m
