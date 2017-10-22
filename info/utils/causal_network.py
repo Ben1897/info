@@ -56,20 +56,20 @@ class causal_network(object):
         g = nx.DiGraph()
 
         # Assign all the nodes into the directed graph
-        var = causalDict.keys()
-        nvar = len(var)
+        var    = causalDict.keys()
+        nvar   = len(var)
         nnodes = nvar*(taumax+1)
         g.add_nodes_from(range(nnodes))
 
         # Assign all the edges
         for i in range(taumax+1):
-            gap = nvar*i
+            gap           = nvar*i
             involed_nodes = range(gap, gap+nvar)
             for j in range(nvar):
                 end = involed_nodes[j]
                 for parent_neighbor in causalDict[j]:
                     isneighbor = is_neighbor(parent_neighbor)
-                    start = get_node_number(parent_neighbor, nvar, gap)
+                    start      = get_node_number(parent_neighbor, nvar, gap)
                     if isneighbor:  # Here an undirected edge is miciced by two directed edges with the opposite directions
                         g.add_edge(start, end, isneighbor=isneighbor)
                         g.add_edge(end, start, isneighbor=isneighbor)
@@ -78,8 +78,23 @@ class causal_network(object):
 
         self.var    = var
         self.nvar   = nvar
-        self.nnodes = nnodes
+        self.nnodes = g.number_of_nodes()
         self.g      = g
+
+    def __check_node(self, target):
+        """
+        Check whether the target node is in the valid graph by fulfilling the following conditions:
+            (1) var_index is within self.var
+            (2) lag is smaller than and equal to taumax
+        Input:
+        target -- the target node [set (var_index, lag)]
+
+        """
+        if target[0] not in self.var:
+            raise Exception("The target variable %d is not in the valid variable set!" % target[0])
+
+        if target[1] > self.taumax:
+            raise Exception("The time step of the target node %d is larger than the taumax!" % target[1])
 
     def search_parents_neighbors(self, target, verbosity=1):
         """
@@ -92,22 +107,26 @@ class causal_network(object):
 
         """
         g, nvar = self.g, self.nvar
+
+        # Check whether the node is in the causal network
+        self.__check_node(target)
+
         # Get the node number
         tnode = get_node_number(target, nvar, 0)
 
         # Get its parents
-        parents = get_parents_from_nodes(g, tnode)
+        parents = get_parents_from_nodes(g, [tnode])
 
         # Get its neighbors
-        neighbors = get_neighbors_from_nodes(g, tnode)
+        neighbors = get_neighbors_from_nodes(g, [tnode])
 
         if not parents and not neighbors and verbosity==1:
             print 'No parents and neighbors for the node:'
             print target
             return {'parents': [], 'neighbors': []}
         else:
-            return {'parents': convert_nodes_to_listofset(parents),
-                    'neighbors': convert_nodes_to_listofset(neighbors)}
+            return {'parents': convert_nodes_to_listofset(parents, nvar),
+                    'neighbors': convert_nodes_to_listofset(neighbors, nvar)}
 
     def search_paths(self, source, target, nested=False, verbosity=1):
         """
@@ -123,6 +142,11 @@ class causal_network(object):
 
         """
         g, nvar = self.g, self.nvar
+
+        # Check whether the node is in the causal network
+        self.__check_node(source)
+        self.__check_node(target)
+
         # Get the node number
         snode = get_node_number(source, nvar, 0)
         tnode = get_node_number(target, nvar, 0)
@@ -175,16 +199,27 @@ class causal_network(object):
 
     def search_mit_condition(self, source, target, sidepath=False, verbosity=1):
         """
-        Find the conditions for calculating the momentary information transfer (MIT) between between a source and a target.
+        Find the conditions for calculating the momentary information transfer (MIT) between between a source and a target
+        based on the link type:
+            'directed'        -- the condition for MIT
+            'causal'          -- the condition for MITP (with or without sidepath effect based on the input sidepath)
+            'contemporaneous' -- the condition for MIT for two contemporaneous nodes
+            'contempsidepath' -- no condition
 
         Input:
         source -- the source node [set (var_index, lag)]
         target -- the target node [set (var_index, lag)]
+        sidepath --  whether including the contemporaneous sidepaths [bool]
         Output:
         the condition for MIT or MITP [list of sets]
 
         """
         g, nvar = self.g, self.nvar
+
+        # Check whether the node is in the causal network
+        self.__check_node(source)
+        self.__check_node(target)
+
         # Get the node number
         snode = get_node_number(source, nvar, 0)
         tnode = get_node_number(target, nvar, 0)
@@ -192,17 +227,39 @@ class causal_network(object):
         # Get the parents of the target node
         pt = get_parents_from_nodes(g, [tnode])
 
-        # Get the causal path, the parent(s) of the causal path, the neighbor(s) in the contemporaneous sidepath(s)
-        # and the parents of the neighbor(s) of the source
-        cpathnested, pcpath, cpath, psidepathneighbor, sidepathneighbor = get_path_nodes_and_their_parents(g, snode, tnode)
+        linktype = self.check_links(source, target, verbosity=verbosity)
 
-        # Get the condition for MIT
-        if sidepath:  # with sidepath
-            w1 = union([pcpath, exclude_intersection(pt, cpath)])
-            w2 = union([sidepathneighbor, psidepathneighbor])
-            w  = union([w1, w2])
-        else:         # without sidepath
-            w = union([pcpath, exclude_intersection(pt, cpath)])
+        # Get the condition for MIT/MITP
+        if linktype == 'directed':                                              # linked by a directed link
+            # w = union([pcpath, exclude_intersection(pt, cpath)])
+            w1 = get_parents_from_nodes(g, [snode])
+            w2 = exclude_intersection(get_parents_from_nodes(g, [tnode]), [snode])
+            w = union([w1, w2])
+
+        elif linktype == 'causal':                                              # linked by a causal path
+            # Get the causal path, the parent(s) of the causal path, the neighbor(s) in the contemporaneous sidepath(s)
+            # and the parents of the neighbor(s) of the source
+            cpathnested, pcpath, cpath, psidepathneighbor, sidepathneighbor = get_path_nodes_and_their_parents(g, snode, tnode)
+            if sidepath:   # with sidepath
+                w1 = union([pcpath, exclude_intersection(pt, cpath)])
+                w2 = union([sidepathneighbor, psidepathneighbor])
+                w  = union([w1, w2])
+            else:          # without sidepath
+                w = union([pcpath, exclude_intersection(pt, cpath)])
+
+        elif linktype == 'contemporaneous':                                     # linked by a contemporaneous undirected link
+            w1 = get_parents_from_nodes(g, [snode])
+            w2 = get_parents_from_nodes(g, [tnode])
+            w3 = exclude_intersection(get_neighbors_from_nodes(g, [snode]), [tnode])
+            w4 = exclude_intersection(get_neighbors_from_nodes(g, [tnode]), [snode])
+            w5 = get_parents_from_nodes(w3)
+            w6 = get_parents_from_nodes(w4)
+            w  = union([w1, w2, w3, w4, w5, w6])
+
+        elif linktype == 'contempsidepath':
+            w = []
+            if verbosity == 1:
+                print "The two nodes %s and %s are connected by a contempraneous sidepath, thus no condition returned." % (source, target)
 
         return convert_nodes_to_listofset(w, nvar)
 
@@ -211,14 +268,33 @@ class causal_network(object):
         Find the conditions for calculating the momentary partial information decomposition (MPID) between two sources and a target.
 
         Input:
-        source1 -- the first source node [set (var_index, lag)]
-        source2 -- the second source node [set (var_index, lag)]
-        target  -- the target node [set (var_index, lag)]
+        source1  -- the first source node [set (var_index, lag)]
+        source2  -- the second source node [set (var_index, lag)]
+        target   -- the target node [set (var_index, lag)]
+        sidepath --  whether including the contemporaneous sidepaths [bool]
         Output:
         the condition for MPID [list of sets]
 
         """
         g, nvar = self.g, self.nvar
+
+        # Check whether the node is in the causal network
+        self.__check_node(source1)
+        self.__check_node(source2)
+        self.__check_node(target)
+
+        # Check whether the two sources are linked with the target through causal paths
+        linktype1 = self.check_links(source1, target, verbosity=verbosity)
+        linktype2 = self.check_links(source1, target, verbosity=verbosity)
+        if linktype1 not in ['causal', 'directed']:
+            if verbosity == 1:
+                print "The source %s and the target %s are not linked by a causal path" % (source1, target)
+            return []
+        if linktype2 not in ['causal', 'directed']:
+            if verbosity == 1:
+                print "The source %s and the target %s are not linked by a causal path" % (source2, target)
+            return []
+
         # Get the node number
         s1node = get_node_number(source1, nvar, 0)
         s2node = get_node_number(source2, nvar, 0)
@@ -294,7 +370,10 @@ def get_path_nodes_and_their_parents(g, snode, tnode):
 def get_causal_contemp_paths(g, snode, tnode):
     '''Find the causal paths from the source node to the target node, and
        find its neighbors which locate in the contemporaneous paths.
-       Return two lists of nodes:  causalpaths, neighbors, causalpathsnested'''
+
+       Return five lists of nodes:
+            causalpaths_final, causalpaths, contemppaths_final, contemppaths, neighbors
+    '''
     # Get all the path from s1node to tnode
     pathall = nx.all_simple_paths(g, snode, tnode)
     pathall = list(pathall)

@@ -36,7 +36,7 @@ import pandas as pd
 
 class info(object):
 
-    def __init__(self, ndim, pdfs, base=2, conditioned=False, specific=False, normalized=False, MPID2=False):
+    def __init__(self, ndim, pdfs, base=2, conditioned=False, specific=False, MPID2=False):
         '''
         Input:
         ndim -- the number of dimension to be computed [int]
@@ -48,7 +48,6 @@ class info(object):
         base -- the logrithmatic base (the default is 2) [float/int]
         conditioned -- whether including conditions [bool]
         specific -- whether calculating the specific PID [bool]
-        normalized --  whether the calculated info metrics need to be normalized [bool]
         MPID2 -- whether calculating MPID2 [bool]
                  if False, compute info by using computeInfo1D, computeInfo2D, computeInfo3D, computeInfoMD,
                  if True, compute info by using computeInfoMD2
