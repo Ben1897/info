@@ -47,7 +47,7 @@ class pdfComputer(object):
     allowedApproach = ['fixedBin', 'kde', 'kde_cuda', 'kde_c']
     allowedBandwidthMethod = ['silverman', 'crossvalidation']
 
-    def __init__(self, ndim, approach='kde_cuda', **kwargs):
+    def __init__(self, ndim, approach='kde_cuda', kernel='gaussian', **kwargs):
         '''
         ndim: the number of dimension [int]
         approach: the selected approach for computing PDF [string]
@@ -77,6 +77,7 @@ class pdfComputer(object):
 
         # Check whether the provided parameters fulfill the requirements of the
         # selected approach.
+        self.kernel = kernel
         self.__checkApproachPara(**kwargs)
 
     def computePDF(self, data, nbins, limits=None, atomCheck=True):
@@ -163,6 +164,7 @@ class pdfComputer(object):
         coords  = self.coords
         estimator = self.estimator
         para   = self.approachPara.copy()
+        kernel  = self.kernel
 
         t0 = time.time()
 
@@ -182,7 +184,7 @@ class pdfComputer(object):
             bd = self.computeBandWidth(data, para['bandwidth'])
 
         # Estimate PDF
-        pdf = estimator(ndim, bd, Nt=Nt, No=npts, coordo=data, coordt=coordt, dtype=float64)
+        pdf = estimator(ndim, kernel, bd, Nt=Nt, No=npts, coordo=data, coordt=coordt, dtype=float64)
         # print pdf.nbytes, pdf[0], pdf[1]
         # print np.count_nonzero(~np.isnan(pdf))
         pdf = pdf.reshape(nbins)
@@ -209,7 +211,7 @@ class pdfComputer(object):
         atom   = self.atom
         coords = self.coords
         para   = self.approachPara.copy()
-
+        kernel = self.kernel
         estimator = self.estimator
 
         t0 = time.time()
@@ -229,7 +231,7 @@ class pdfComputer(object):
             # Get the values to be estimated
             coordt = coords[0][1:, np.newaxis]
             Nt     = coordt.size
-            pdfcenter = estimator(ndim, bd, Nt, No, coordo, coordt, dtype=float64)
+            pdfcenter = estimator(ndim, kernel, bd, Nt, No, coordo, coordt, dtype=float64)
         else:        # no atom-at-zero effect
             # Get the sample values
             coordo = data
@@ -237,7 +239,7 @@ class pdfComputer(object):
             # Get the values to be estimated
             coordt = coords[0][:, np.newaxis]
             Nt     = coordt.size
-            pdfcenter = estimator(ndim, bd, Nt, No, coordo, coordt, dtype=float64)
+            pdfcenter = estimator(ndim, kernel, bd, Nt, No, coordo, coordt, dtype=float64)
 
         # Combine pdfcenter to pdf and compute the origin if it is a atom-at-zero effect
         if atom[0]:
@@ -270,7 +272,7 @@ class pdfComputer(object):
         ycoords = self.coords[1]
         para    = self.approachPara.copy()
         nx, ny  = nbins[0], nbins[1]
-
+        kernel  = self.kernel
         estimator = self.estimator
 
         t0 = time.time()
@@ -300,7 +302,7 @@ class pdfComputer(object):
             xcoordt    = xcoords[:]
             ycoordt    = ycoords[:]
             Nt         = coordt.shape[0]
-            pdfcenter  = estimator(ndim, bd, Nt, npts, data, coordt, dtype=float64)
+            pdfcenter  = estimator(ndim, kernel, bd, Nt, npts, data, coordt, dtype=float64)
             pdfcenter  = pdfcenter.reshape(xcoordt.size, ycoordt.size)
         elif atom[0] == 1 and atom[1] == 1:  # consider atom-at-zero effect at both x and y
             ### Compute PDF center
@@ -312,7 +314,7 @@ class pdfComputer(object):
             xpts, ypts = np.meshgrid(xcoordt, ycoordt, indexing='ij')
             coordt     = np.array([xpts.reshape(xpts.size), ypts.reshape(ypts.size)]).T
             No, Nt     = coordo.shape[0], coordt.shape[0]
-            pdfcenter  = estimator(ndim, bd, Nt, No, coordo, coordt, dtype=float64)
+            pdfcenter  = estimator(ndim, kernel, bd, Nt, No, coordo, coordt, dtype=float64)
             pdfcenter  = pdfcenter.reshape(xcoordt.size, ycoordt.size)
             ### Compute pdfx0 and pdfy0
             x0data = xdata[indy0]
@@ -330,7 +332,7 @@ class pdfComputer(object):
             xpts, ypts = np.meshgrid(xcoordt, ycoordt, indexing='ij')
             coordt     = np.array([xpts.reshape(xpts.size), ypts.reshape(ypts.size)]).T
             No, Nt     = coordo.shape[0], coordt.shape[0]
-            pdfcenter  = estimator(ndim, bd, Nt, No, coordo, coordt, dtype=float64)
+            pdfcenter  = estimator(ndim, kernel, bd, Nt, No, coordo, coordt, dtype=float64)
             pdfcenter  = pdfcenter.reshape(xcoordt.size, ycoordt.size)
             # Compute pdfx0
             ind    = np.any([ind00, indy0], axis=0)
@@ -347,7 +349,7 @@ class pdfComputer(object):
             xpts, ypts = np.meshgrid(xcoordt, ycoordt, indexing='ij')
             coordt     = np.array([xpts.reshape(xpts.size), ypts.reshape(ypts.size)]).T
             No, Nt     = coordo.shape[0], coordt.shape[0]
-            pdfcenter  = estimator(ndim, bd, Nt, No, coordo, coordt, dtype=float64)
+            pdfcenter  = estimator(ndim, kernel, bd, Nt, No, coordo, coordt, dtype=float64)
             pdfcenter  = pdfcenter.reshape(xcoordt.size, ycoordt.size)
             # Compute pdfy0
             ind    = np.any([ind00, indx0], axis=0)
@@ -399,7 +401,7 @@ class pdfComputer(object):
         zcoords  = self.coords[2]
         para     = self.approachPara.copy()
         nx,ny,nz = nbins[0], nbins[1], nbins[2]
-
+        kernel   = self.kernel
         estimator = self.estimator
 
         t0 = time.time()
@@ -604,7 +606,7 @@ class pdfComputer(object):
         xpts, ypts, zpts = np.meshgrid(xcoordt, ycoordt, zcoordt, indexing='ij')
         coordt     = np.array([xpts.reshape(xpts.size), ypts.reshape(ypts.size), zpts.reshape(zpts.size)]).T
         No, Nt     = coordo.shape[0], coordt.shape[0]
-        pdfcenter  = estimator(ndim, bd, Nt, No, coordo, coordt, dtype=float64)
+        pdfcenter  = estimator(ndim, kernel, bd, Nt, No, coordo, coordt, dtype=float64)
         pdfcenter  = pdfcenter.reshape(xcoordt.size, ycoordt.size, zcoordt.size)
         # Replace nan with zero
         pdfcenter = np.nan_to_num(pdfcenter)

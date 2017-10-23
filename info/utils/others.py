@@ -7,6 +7,7 @@ A set of utility functions.
 corrcoefs()
 butter_fiter()
 aggregate()
+normalize()
 interpolate_nan()
 parse_SFP()
 read_SFPmatfile()
@@ -51,7 +52,6 @@ def butter_filter(data, N, fs, fc, btype='high'):
 
     return filtered
 
-
 def aggregate(data, interval, method='accumulate'):
     """Aggregate the data given the interval and the aggregation method."""
     # Get the size of the aggregated data set
@@ -74,6 +74,15 @@ def aggregate(data, interval, method='accumulate'):
 
     return datat
 
+def normalize(data):
+    """Normalize the data by subtracting its mean and dividing it by its std for each dimension.
+    data -- [numpy array with shape(npts, ndim)]
+    """
+    npts, ndim = data.shape
+
+    mean, std = np.mean(data, axis=0), np.std(data, axis=0)
+
+    return (data - mean) / std
 
 def interpolate_nan(data):
     """Interpolate nan values by using numpy interp method."""

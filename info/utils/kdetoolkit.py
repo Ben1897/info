@@ -20,12 +20,14 @@ kde_path = os.path.join(dir_path, 'kde.so')
 cudakde_path = os.path.join(dir_path, 'cuda_kde.so')
 
 
+allowed_kernels = ['epanechnikov', 'gaussian']
 # Function for estimating PDF using c based kde
-def kde_c(ndim, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False):
+def kde_c(ndim, kernel, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False):
     '''
     Calculating PDF by using KDE (Epanechnikov) based on C code.
     Inputs:
         ndim   -- the number of dimensions/variables [int]
+        kernel -- the type of the kernel [str]
         bd     -- a list of bandwidths for each dimension/variable [list]
         Nt     -- the number of locations whose PDF will be estimated [int]
         No     -- the number of sampled locations [int]
@@ -34,6 +36,14 @@ def kde_c(ndim, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False):
     Outputs:
         pdf    -- the estimated pdf [ndarray with shape(Nt,)]
     '''
+    # Check the kernel type
+    if kernel.lower() == 'epanechnikov':
+        ktype = 1
+    elif kernel.lower() == 'gaussian':
+        ktype = 2
+    else:
+        raise Exception('Unknown kernel type %s' % kernel)
+
     # Convert the float value of the bd into a list in a numpy array
     if ndim == 1 and isinstance(bd, float):
         bd = np.array([bd], dtype='float64')
@@ -50,7 +60,7 @@ def kde_c(ndim, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False):
     # dll           = ctypes.CDLL('./kde.so')
     dll           = ctypes.CDLL(kde_path)
     func          = dll.kde
-    func.argtypes = [c_int, c_int, c_int,
+    func.argtypes = [c_int, c_int, c_int, c_int,
                      POINTER(c_double), POINTER(c_double), POINTER(c_double)]
     func.restype  = POINTER(c_double)
 
@@ -61,13 +71,14 @@ def kde_c(ndim, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False):
     ndim_p   = c_int(ndim)
     Nt_p     = c_int(Nt)
     No_p     = c_int(No)
+    ktype_p  = c_int(ktype)
     bd_p     = bd.ctypes.data_as(POINTER(c_double))
     coordo_p = coordo.ctypes.data_as(POINTER(c_double))
     coordt_p = coordt.ctypes.data_as(POINTER(c_double))
 
     # Calculate the pdf and compute the time
     start = time()
-    pdf   = func(ndim_p, Nt_p, No_p, bd_p, coordo_p, coordt_p)
+    pdf   = func(ndim_p, Nt_p, No_p, ktype_p, bd_p, coordo_p, coordt_p)
     end   = time()
 
     # Normalize pdf and reshape pdf
@@ -82,11 +93,12 @@ def kde_c(ndim, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False):
 
 
 # Function for estimating PDF using c-cuda based kde
-def kde_cuda(ndim, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False):
+def kde_cuda(ndim, kernel, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False):
     '''
     Calculating PDF by using KDE (Epanechnikov) based on C-CUDA code.
     Inputs:
         ndim   -- the number of dimensions/variables [int]
+        kernel -- the type of the kernel [str]
         bd     -- a list of bandwidths for each dimension/variable [list]
         Nt     -- the number of locations whose PDF will be estimated [int]
         No     -- the number of sampled locations [int]
@@ -95,6 +107,14 @@ def kde_cuda(ndim, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False):
     Outputs:
         pdf    -- the estimated pdf [ndarray with shape(Nt,)]
     '''
+    # Check the kernel type
+    if kernel.lower() == 'epanechnikov':
+        ktype = 1
+    elif kernel.lower() == 'gaussian':
+        ktype = 2
+    else:
+        raise Exception('Unknown kernel type %s' % kernel)
+
     # Convert the float value of the bd into a list in a numpy array
     if ndim == 1 and isinstance(bd, float):
         bd = np.array([bd], dtype='float64')
@@ -111,7 +131,7 @@ def kde_cuda(ndim, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False):
     # dll           = ctypes.CDLL('./cuda_kde.so')
     dll           = ctypes.CDLL(cudakde_path)
     func          = dll.cuda_kde
-    func.argtypes = [c_int, c_int, c_int,
+    func.argtypes = [c_int, c_int, c_int, c_int,
                      POINTER(c_double), POINTER(c_double), POINTER(c_double)]
     func.restype  = POINTER(c_double)
 
@@ -125,13 +145,14 @@ def kde_cuda(ndim, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False):
     ndim_p   = c_int(ndim)
     Nt_p     = c_int(Nt)
     No_p     = c_int(No)
+    ktype_p  = c_int(ktype)
     bd_p     = bd.ctypes.data_as(POINTER(c_double))
     coordo_p = coordo.ctypes.data_as(POINTER(c_double))
     coordt_p = coordt.ctypes.data_as(POINTER(c_double))
 
     # Calculate the pdf and compute the time
     start = time()
-    pdf   = func(ndim_p, Nt_p, No_p, bd_p, coordo_p, coordt_p)
+    pdf   = func(ndim_p, Nt_p, No_p, ktype_p, bd_p, coordo_p, coordt_p)
     end   = time()
 
     # Normalize pdf and reshape pdf
@@ -147,11 +168,12 @@ def kde_cuda(ndim, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False):
 
 
 # Function for estimating PDF using scikit-learn based kde
-def kde_sklearn(ndim, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False):
+def kde_sklearn(ndim, kernel, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False):
     '''
     Calculating PDF by using KDE (Epanechnikov) based on scikit-learn KernelDensity method.
     Inputs:
         ndim   -- the number of dimensions/variables [int]
+        kernel -- the type of the kernel [str]
         bd     -- a list of bandwidths for each dimension/variable [list]
         Nt     -- the number of locations whose PDF will be estimated [int]
         No     -- the number of sampled locations [int]
@@ -160,6 +182,10 @@ def kde_sklearn(ndim, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False):
     Outputs:
         pdf    -- the estimated pdf [ndarray with shape(Nt,)]
     '''
+    # Check kernel types
+    if kernel.lower() not in allowed_kernels:
+        raise Exception('Unknown kernel type %s' % kernel)
+
     # Convert the float value of the bd into a list in a numpy array
     if ndim == 1 and isinstance(bd, float):
         bd = np.array([bd], dtype='float64')
@@ -178,7 +204,7 @@ def kde_sklearn(ndim, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False):
 
     # Calculate the pdf and compute the time
     start = time()
-    kde_skl = KernelDensity(bandwidth=bd[0], kernel='epanechnikov')
+    kde_skl = KernelDensity(bandwidth=bd[0], kernel=kernel.lower())
     kde_skl.fit(coordo)
     log_pdf = kde_skl.score_samples(coordt)
     end = time()

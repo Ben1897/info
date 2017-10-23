@@ -12,7 +12,7 @@ from ..utils.pdf_computer import pdfComputer
 
 class info_network(object):
 
-    def __init__(self, data, causalDict, nx=10, taumax=10, pdfest='kde_c', base=2.):
+    def __init__(self, data, causalDict, nx=10, taumax=10, kernel='gaussian', pdfest='kde_c', base=2.):
         """
         Input:
         data       -- the data [numpy array with shape (npoints, ndim)]
@@ -22,6 +22,7 @@ class info_network(object):
                       e.g., {0: [(0,-1), (1,-1)], 1: [(0,-2), (1,-1)]}
         nx         -- the number of bins in each dimension for PDF estimation [int]
         taumax     -- the maximum time lag for generating causal network [int]
+        kernel     -- the kernel type [str]
         pdfest     -- the selected approach for computing PDF [string]
         base       -- the logrithmatic base [float]
 
@@ -31,6 +32,7 @@ class info_network(object):
         self.nx     = int(nx)
         self.pdfest = pdfest
         self.base   = float(base)
+        self.kernel = kernel
 
         # Check whether the number of variables are larger than 1
         self.npoint, self.nvar = data.shape
@@ -65,13 +67,14 @@ class info_network(object):
         pdfest  = self.pdfest
         base    = self.base
         nx      = self.nx
+        kernel  = self.kernel
 
         # If not conditioned, just compute the normal information metrics (not the momentary one)
         if not conditioned:
             # Reorganize the data
             data_required = reorganize_data(data, [source, target])
             # Compute the PDF
-            pdfsolver = pdfComputer(ndim=2, approach=pdfest, bandwidth='silverman', kernel='epanechnikov', base=base)
+            pdfsolver = pdfComputer(ndim=2, approach=pdfest, bandwidth='silverman', kernel=kernel, base=base)
             if nbins is not None:
                 _, pdf, cd = pdfsolver.computePDF(data_required, nbins=nbins)
             else:
@@ -85,7 +88,7 @@ class info_network(object):
             return inforesult
 
         # Check whether the two nodes are linked
-        if network.check_links(source, target, verbosity=verbosity) not in ['causal', 'directed', 'contemporaneous']:
+        if network.check_links(source, target, verbosity=0) not in ['causalpath', 'directed', 'contemporaneous']:
             print "The source %s and the target %s are not linked through a causal path or a contemporaneous link!" % (source, target)
             return None
 
@@ -97,9 +100,9 @@ class info_network(object):
 
         # Compute the PDF
         if w:
-            pdfsolver = pdfComputer(ndim='m', approach=pdfest, bandwidth='silverman', kernel='epanechnikov', base=base)
+            pdfsolver = pdfComputer(ndim='m', approach=pdfest, bandwidth='silverman', kernel=kernel, base=base)
         else:  # if w is empty
-            pdfsolver = pdfComputer(ndim=2, approach=pdfest, bandwidth='silverman', kernel='epanechnikov', base=base)
+            pdfsolver = pdfComputer(ndim=2, approach=pdfest, bandwidth='silverman', kernel=kernel, base=base)
         if nbins is not None:
             _, pdf, cd = pdfsolver.computePDF(data_required, nbins=nbins)
         else:
@@ -139,13 +142,14 @@ class info_network(object):
         pdfest  = self.pdfest
         base    = self.base
         nx      = self.nx
+        kernel  = self.kernel
 
         # If not conditioned, just compute the normal information metrics (not the momentary one)
         if not conditioned:
             # Reorganize the data
             data_required = reorganize_data(data, [source1, source2, target])
             # Compute the PDF
-            pdfsolver = pdfComputer(ndim=3, approach=pdfest, bandwidth='silverman', kernel='epanechnikov', base=base)
+            pdfsolver = pdfComputer(ndim=3, approach=pdfest, bandwidth='silverman', kernel=kernel, base=base)
             if nbins is not None:
                 _, pdf, cd = pdfsolver.computePDF(data_required, nbins=nbins)
             else:
@@ -159,10 +163,10 @@ class info_network(object):
             return inforesult
 
         # Check whether each source node is linked with the target through a causal path
-        if network.check_links(source1, target, verbosity=verbosity) not in ['causal', 'directed']:
+        if network.check_links(source1, target, verbosity=verbosity) not in ['causalpath', 'directed']:
             print "The source %s and the target %s are not linked through a causal path!" % (source1, target)
             return None
-        if network.check_links(source2, target, verbosity=verbosity) not in ['causal', 'directed']:
+        if network.check_links(source2, target, verbosity=verbosity) not in ['causalpath', 'directed']:
             print "The source %s and the target %s are not linked through a causal path!" % (source2, target)
             return None
 
@@ -174,9 +178,9 @@ class info_network(object):
 
         # Compute the PDF
         if w:
-            pdfsolver = pdfComputer(ndim='m', approach=pdfest, bandwidth='silverman', kernel='epanechnikov', base=base)
+            pdfsolver = pdfComputer(ndim='m', approach=pdfest, bandwidth='silverman', kernel=kernel, base=base)
         else:  # if w is empty
-            pdfsolver = pdfComputer(ndim=3, approach=pdfest, bandwidth='silverman', kernel='epanechnikov', base=base)
+            pdfsolver = pdfComputer(ndim=3, approach=pdfest, bandwidth='silverman', kernel=kernel, base=base)
         if nbins is not None:
             _, pdf, cd = pdfsolver.computePDF(data_required, nbins=nbins)
         else:

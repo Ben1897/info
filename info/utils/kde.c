@@ -28,11 +28,12 @@
  * @param  Nt     [number of pdf to be estimated]
  * @param  No     [number of the given samples]
  * @param  bd     [an array of bandwidths of the kernel]
+ * @param  ktype  [the type of kernel]
  * @param  coordo [an array of the sample locations]
  * @param  coordt [an array of the location of pdf to be estimated]
  * @return        [an array of pdf to be estimated]
  */
-double *kde(int nvar, int Nt, int No, double *bd, double *coordo, double *coordt)
+double *kde(int nvar, int Nt, int No, int ktype, double *bd, double *coordo, double *coordt)
 {
   // double xi;         // The ith location of the estimated point in the kth variable
   // double yj;         // The jth location of the sampled point in the kth variable
@@ -58,19 +59,27 @@ double *kde(int nvar, int Nt, int No, double *bd, double *coordo, double *coordt
       for (int k = 0; k < nvar; k++)
       {
         u  = (coordt[i*nvar+k] - coordo[j*nvar+k]) / bd[k];
-        // Epanechnikov kernel
-        /* if (u*u < 1) */
-        /* { */
-        /*   kernel = 0.75 * (1-u*u);  // the Epanechnikov kernel */
-        /*   prod_kern = prod_kern * kernel/bd[k]; */
-        /* } else { */
-        /*   prod_kern = 0.; */
-        /*   break; */
-        /* } */
 
+        // Epanechnikov kernel
+        if(kernel == 1){
+          if (u*u < 1)
+            {
+              kernel = 0.75 * (1-u*u);  // the Epanechnikov kernel
+              prod_kern = prod_kern * kernel/bd[k];
+            } else {
+            prod_kern = 0.;
+            break;
+          }
+        }
         // Gaussian kernel
-        kernel = 1./sqrt(2*M_PI) * exp(-1./2.*pow(u,2));
-        prod_kern = prod_kern * kernel/bd[k];
+        else if(kernel == 2){
+          kernel = 1./sqrt(2*M_PI) * exp(-1./2.*pow(u,2));
+          prod_kern = prod_kern * kernel/bd[k];
+        }
+        else{
+          printf("Unknown kernel type index: %d", ktype);
+        }
+
      }
 
       pdf = pdf + prod_kern;

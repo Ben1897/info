@@ -296,6 +296,12 @@ def plot_pid(xv, yv, iic, rp, sp, uxp, uyp, xlabel, ylabel, zlabel='$[nats]$',
              vmin=0, vmax=1, vertical=False, option='MPID', prop=True):
     '''Plot the all the information of PID.'''
     # vmin, vmax = 0, 1
+    if vmax < 0.5:
+        zlim = [-0.1, 0.5]
+        zticks = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]
+    else:
+        zlim = [-0.1, 1.0]
+        zticks = [0.0, 0.5, 1.0]
     labelpad = 20
     extent = [xv.min(), xv.max(), yv.max(), yv.min()]
 
@@ -328,8 +334,9 @@ def plot_pid(xv, yv, iic, rp, sp, uxp, uyp, xlabel, ylabel, zlabel='$[nats]$',
     ax.view_init(20, 225)
     cs = ax.plot_surface(xv, yv, iic, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
                          linewidth=0, antialiased=False)
-    plt.colorbar(cs, ax=ax)
-    ax.set_zlim([-.1, 1.1])
+    plt.colorbar(cs, ax=ax, ticks=zticks)
+    ax.set_zlim(zlim)
+    ax.set_zticks(zticks)
     ax.set_xlabel(xlabel, labelpad=labelpad)
     ax.set_ylabel(ylabel, labelpad=labelpad)
     if not prop:
@@ -345,8 +352,9 @@ def plot_pid(xv, yv, iic, rp, sp, uxp, uyp, xlabel, ylabel, zlabel='$[nats]$',
     ax.view_init(20, 225)
     cs = ax.plot_surface(xv, yv, rp, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
                          linewidth=0, antialiased=False)
-    plt.colorbar(cs, ax=ax)
-    ax.set_zlim([-.1, 1.1])
+    plt.colorbar(cs, ax=ax, ticks=zticks)
+    ax.set_zlim(zlim)
+    ax.set_zticks(zticks)
     ax.set_xlabel(xlabel, labelpad=labelpad)
     ax.set_ylabel(ylabel, labelpad=labelpad)
     if not prop:
@@ -362,8 +370,9 @@ def plot_pid(xv, yv, iic, rp, sp, uxp, uyp, xlabel, ylabel, zlabel='$[nats]$',
     ax.view_init(20, 225)
     cs = ax.plot_surface(xv, yv, sp, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
                     linewidth=0, antialiased=False)
-    plt.colorbar(cs, ax=ax)
-    ax.set_zlim([-.1, 1.1])
+    plt.colorbar(cs, ax=ax, ticks=zticks)
+    ax.set_zlim(zlim)
+    ax.set_zticks(zticks)
     ax.set_xlabel(xlabel, labelpad=labelpad)
     ax.set_ylabel(ylabel, labelpad=labelpad)
     if not prop:
@@ -379,8 +388,9 @@ def plot_pid(xv, yv, iic, rp, sp, uxp, uyp, xlabel, ylabel, zlabel='$[nats]$',
     ax.view_init(20, 225)
     cs = ax.plot_surface(xv, yv, uxp, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
                          linewidth=0, antialiased=False)
-    plt.colorbar(cs, ax=ax)
-    ax.set_zlim([-.1, 1.1])
+    plt.colorbar(cs, ax=ax, ticks=zticks)
+    ax.set_zlim(zlim)
+    ax.set_zticks(zticks)
     ax.set_xlabel(xlabel, labelpad=labelpad)
     ax.set_ylabel(ylabel, labelpad=labelpad)
     if not prop:
@@ -396,8 +406,9 @@ def plot_pid(xv, yv, iic, rp, sp, uxp, uyp, xlabel, ylabel, zlabel='$[nats]$',
     ax.view_init(20, 225)
     cs = ax.plot_surface(xv, yv, uyp, cmap=plt.get_cmap('jet'), vmin=vmin, vmax=vmax,
                          linewidth=0, antialiased=False)
-    plt.colorbar(cs, ax=ax)
-    ax.set_zlim([-.1, 1.1])
+    plt.colorbar(cs, ax=ax, ticks=zticks)
+    ax.set_zlim(zlim)
+    ax.set_zticks(zticks)
     ax.set_xlabel(xlabel, labelpad=labelpad)
     ax.set_ylabel(ylabel, labelpad=labelpad)
     if not prop:

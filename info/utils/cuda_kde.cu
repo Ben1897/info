@@ -31,7 +31,9 @@ double get_time()
  * @param Nt     [number of pdf to be estimated]
  * @param nvar   [number of variables]
  */
-__global__ void kernel(double *pdfset, double *coordo,
+
+// Gaussian kernel
+__global__ void gaussian_kernel(double *pdfset, double *coordo,
                        double *coordt, double *bd,
                        int No, int Nt, int nvar)
 {
@@ -53,19 +55,54 @@ __global__ void kernel(double *pdfset, double *coordo,
         for (int k = 0; k < nvar; k++)
         {
           u  = (coordt[i*nvar+k] - coordo[j*nvar+k]) / bd[k];
-          // Epanechnikov kernel
-          /* if (u*u < 1)  // the Epanechnikov kernel */
-          /* { */
-          /*   kernel = 0.75 * (1-u*u); */
-          /*   prod_kern = prod_kern * kernel/bd[k]; */
-          /* } else { */
-          /*   prod_kern = 0.; */
-          /*   break; */
-          /* } */
 
-          // Gaussian kernel
           kernel = 1./sqrt(2*M_PI) * exp(-1./2.*pow(u,2));
           prod_kern = prod_kern * kernel/bd[k];
+        }
+        // if (prod_kern > 0) printf("prod_kern %f\n", prod_kern);
+        pdf = pdf + prod_kern;
+      }
+
+      pdfset[i] = pdf/(double)No;
+
+      // Roll the block to see whether (for 1D)
+      i += blockDim.x*gridDim.x;
+    }
+
+}
+
+// Epanechnikov kernel
+__global__ void epane_kernel(double *pdfset, double *coordo,
+                       double *coordt, double *bd,
+                       int No, int Nt, int nvar)
+{
+    double pdf;                               // the pdf of the ith location
+    double prod_kern;                              // the kernel information of the ith location
+    double u, kernel;                              // the kernel information of the ith location in the kth variable
+    int i = blockIdx.x * blockDim.x + threadIdx.x; // the index of the ith location
+    // int xi;                                        // the ith location
+
+    /* if (i >= blockDim.x*gridDim.x) { */
+    /*   return; */
+    /* } */
+
+    while (i < Nt) {
+      pdf = 0.;
+      for (int j = 0; j < No; j++)
+      {
+        prod_kern = 1.;
+        for (int k = 0; k < nvar; k++)
+        {
+          u  = (coordt[i*nvar+k] - coordo[j*nvar+k]) / bd[k];
+
+          if (u*u < 1)  // the Epanechnikov kernel
+          {
+            kernel = 0.75 * (1-u*u);
+            prod_kern = prod_kern * kernel/bd[k];
+          } else {
+            prod_kern = 0.;
+            break;
+          }
         }
         // if (prod_kern > 0) printf("prod_kern %f\n", prod_kern);
         pdf = pdf + prod_kern;
@@ -85,13 +122,14 @@ __global__ void kernel(double *pdfset, double *coordo,
  * @param  nvar   [number of variables]
  * @param  Nt     [number of pdf to be estimated]
  * @param  No     [number of the given samples]
+ * @param  ktype  [the type of kernel]
  * @param  bd     [an array of bandwidths of the kernel]
  * @param  coordo [an array of the sample locations]
  * @param  coordt [an array of the location of pdf to be estimated]
  * @return        [an array of pdf to be estimated]
  */
 extern "C" {
-double *cuda_kde(int nvar, int Nt, int No, double *bd, double *coordo, double *coordt)
+double *cuda_kde(int nvar, int Nt, int No, int ktype, double *bd, double *coordo, double *coordt)
 {
   /* int    blockWidth = 512;           // number of thread in each block */
   /* int    blocksX = Nt/blockWidth+1;  // number of block */
@@ -123,7 +161,15 @@ double *cuda_kde(int nvar, int Nt, int No, double *bd, double *coordo, double *c
   // Perform cuda KDE
   /* const dim3 block_size(blockWidth, 1, 1); */
   /* const dim3 grid_size(blocksX, 1, 1); */
-  kernel<<<512,512>>>(d_pdfset, d_coordo, d_coordt, d_bd, No, Nt, nvar);
+  if(ktype == 1) {
+    gaussian_kernel<<<512,512>>>(d_pdfset, d_coordo, d_coordt, d_bd, No, Nt, nvar);
+  }
+  else if(ktype == 2){
+    epane_kernel<<<512,512>>>(d_pdfset, d_coordo, d_coordt, d_bd, No, Nt, nvar);
+  }
+  else {
+    printf("Unknown kernel type index: %d", ktype);
+  }
   /* kernel<<<100,100>>>(d_pdfset, d_coordo, d_coordt, d_bd, No, Nt, nvar); */
 
   // Copy the device back to the host

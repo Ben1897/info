@@ -179,21 +179,25 @@ class causal_network(object):
         """
         # Check whether the link is a directed link or an undirected link
         parents_neighors = self.search_parents_neighbors(target, verbosity=verbosity)
-        if parents_neighors['parents']:
+        if source in parents_neighors['parents']:
             return 'directed'
-        elif parents_neighors['neighbors']:
+        elif source in parents_neighors['neighbors']:
             return 'contemporaneous'
 
         # Check whether the link is a causal path or a contemporaneous sidepath
         paths = self.search_paths(source, target, nested=True, verbosity=verbosity)
         if paths['causal']:
-            return 'causalpath'
+            causal_paths = [node for path in paths['causal'] for node in path]
+            if source in causal_paths:
+                return 'causalpath'
         elif paths['contemp']:
-            return 'contempsidepath'
+            contemp_paths = [node for path in paths['contemp'] for node in path]
+            if source in contemp_paths:
+                return 'contempsidepath'
 
         # If none of them is found, return None
         if verbosity==1:
-            print 'The two are not linked through the following types:'
+            print '%s and %s are not linked through the following types:' % (source, target)
             print 'directed link, contemporaneous link, causal path and contemporaneous sidepath!'
         return None
 
@@ -202,7 +206,7 @@ class causal_network(object):
         Find the conditions for calculating the momentary information transfer (MIT) between between a source and a target
         based on the link type:
             'directed'        -- the condition for MIT
-            'causal'          -- the condition for MITP (with or without sidepath effect based on the input sidepath)
+            'causalpath'      -- the condition for MITP (with or without sidepath effect based on the input sidepath)
             'contemporaneous' -- the condition for MIT for two contemporaneous nodes
             'contempsidepath' -- no condition
 
@@ -228,6 +232,7 @@ class causal_network(object):
         pt = get_parents_from_nodes(g, [tnode])
 
         linktype = self.check_links(source, target, verbosity=verbosity)
+        print linktype
 
         # Get the condition for MIT/MITP
         if linktype == 'directed':                                              # linked by a directed link
@@ -236,7 +241,7 @@ class causal_network(object):
             w2 = exclude_intersection(get_parents_from_nodes(g, [tnode]), [snode])
             w = union([w1, w2])
 
-        elif linktype == 'causal':                                              # linked by a causal path
+        elif linktype == 'causalpath':                                              # linked by a causal path
             # Get the causal path, the parent(s) of the causal path, the neighbor(s) in the contemporaneous sidepath(s)
             # and the parents of the neighbor(s) of the source
             cpathnested, pcpath, cpath, psidepathneighbor, sidepathneighbor = get_path_nodes_and_their_parents(g, snode, tnode)
@@ -261,7 +266,20 @@ class causal_network(object):
             if verbosity == 1:
                 print "The two nodes %s and %s are connected by a contempraneous sidepath, thus no condition returned." % (source, target)
 
-        return convert_nodes_to_listofset(w, nvar)
+        else:
+            w = []
+
+        w = convert_nodes_to_listofset(w, nvar)
+
+        if verbosity:
+            print "The link type between %s and %s is %s" % (source, target, linktype)
+            if linktype == 'causalpath' and verbosity > 1:
+                print "The path from %s to %s is ---" % (source, target)
+                print [convert_nodes_to_listofset(path, nvar) for path in cpathnested]
+            print "The number of conditions from %s to %s is %d, including:" % (source, target, len(w))
+            print w
+
+        return w
 
     def search_mpid_condition(self, source1, source2, target, sidepath=False, verbosity=1):
         """
@@ -286,11 +304,11 @@ class causal_network(object):
         # Check whether the two sources are linked with the target through causal paths
         linktype1 = self.check_links(source1, target, verbosity=verbosity)
         linktype2 = self.check_links(source1, target, verbosity=verbosity)
-        if linktype1 not in ['causal', 'directed']:
+        if linktype1 not in ['causalpath', 'directed']:
             if verbosity == 1:
                 print "The source %s and the target %s are not linked by a causal path" % (source1, target)
             return []
-        if linktype2 not in ['causal', 'directed']:
+        if linktype2 not in ['causalpath', 'directed']:
             if verbosity == 1:
                 print "The source %s and the target %s are not linked by a causal path" % (source2, target)
             return []
@@ -319,7 +337,13 @@ class causal_network(object):
         else:         # without sidepath
             w = union([w1, w2, w3])
 
-        return convert_nodes_to_listofset(w, nvar)
+        w = convert_nodes_to_listofset(w, nvar)
+
+        if verbosity:
+            print "The number of conditions from %s and %s to %s is %d, including:" % (source1, source2, target, len(w))
+            print w
+
+        return w
 
 
 # Help functions
