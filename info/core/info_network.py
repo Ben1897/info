@@ -46,7 +46,7 @@ class info_network(object):
         if self.network.nvar != self.nvar:
             raise Exception('The numbers of variables in data and the causalDict are not equal!')
 
-    def compute_2n_infotrans(self, source, target, conditioned=True, sidepath=True, nbins=None, normalized=False, verbosity=1):
+    def compute_2n_infotrans(self, source, target, conditioned=True, sidepath=True, nbins=None, normalized=False, keeppdf=False, verbosity=1):
         """
         Compute the information transfer from a source node to a target node.
 
@@ -85,6 +85,10 @@ class info_network(object):
             if normalized:
                 inforesult.normalizeinfo()
 
+            # Remove pdf if necessary to save memory
+            if not keeppdf:
+                inforesult.pdfs = None
+
             return inforesult
 
         # Check whether the two nodes are linked
@@ -118,9 +122,13 @@ class info_network(object):
         if normalized:
             inforesult.normalizeinfo()
 
+        # Remove pdf if necessary to save memory
+        if not keeppdf:
+            inforesult.pdfs = None
+
         return inforesult
 
-    def compute_3n_infotrans(self, source1, source2, target, conditioned=True, sidepath=True, nbins=None, normalized=False, verbosity=1):
+    def compute_3n_infotrans(self, source1, source2, target, conditioned=True, sidepath=True, nbins=None, normalized=False, keeppdf=False, verbosity=1):
         """
         Compute the information transfer from two source nodes to a target node.
 
@@ -159,6 +167,9 @@ class info_network(object):
             # Normalize if necessary
             if normalized:
                 inforesult.normalizeinfo()
+            # Remove pdf if necessary to save memory
+            if not keeppdf:
+                inforesult.pdfs = None
 
             return inforesult
 
@@ -196,9 +207,13 @@ class info_network(object):
         if normalized:
             inforesult.normalizeinfo()
 
+        # Remove pdf if necessary to save memory
+        if not keeppdf:
+            inforesult.pdfs = None
+
         return inforesult
 
-    def compute_2n_infotrans_set(self, source_ind, target_ind, conditioned=True, taumax=5, sidepath=True, nbins=None, normalized=False, verbosity=1):
+    def compute_2n_infotrans_set(self, source_ind, target_ind, conditioned=True, taumax=5, sidepath=True, nbins=None, normalized=False, keeppdf=False, verbosity=1):
         """
         Compute the information transfer from a source node to a target node with lags varying from 1 to taumax
 
@@ -234,12 +249,13 @@ class info_network(object):
             # Compute the information transfer
             results[i] = self.compute_2n_infotrans(source, target, conditioned=conditioned,
                                                    sidepath=sidepath, nbins=nbins,
-                                                   normalized=normalized, verbosity=verbosity)
+                                                   normalized=normalized, keeppdf=False,
+                                                   verbosity=verbosity)
 
         # Return the results
         return results
 
-    def compute_3n_infotrans_set(self, source1_ind, source2_ind, target_ind, conditioned=True, taumax=5, sidepath=True, nbins=None, normalized=False, verbosity=1):
+    def compute_3n_infotrans_set(self, source1_ind, source2_ind, target_ind, conditioned=True, taumax=5, sidepath=True, nbins=None, normalized=False, keeppdf=False, verbosity=1):
         """
         Compute the information transfer from two source nodes to a target node with lags varying from 1 to taumax
 
@@ -253,7 +269,7 @@ class info_network(object):
         nbins      -- the number of bins in each dimension [int]
         normalized -- whether the calculated info metrics need to be normalized [bool]
 
-        Ouput:
+        Output:
 
         """
         # Check whether taumax is out of the range of the allowed value self.taumax
@@ -279,7 +295,8 @@ class info_network(object):
                 results[i, j] = self.compute_3n_infotrans(source1, source2, target,
                                                           conditioned=conditioned,
                                                           sidepath=sidepath, nbins=nbins,
-                                                          normalized=normalized, verbosity=verbosity)
+                                                          normalized=normalized, keeppdf=False,
+                                                          verbosity=verbosity)
 
         # Return the results
         return results
