@@ -232,7 +232,6 @@ class causal_network(object):
         pt = get_parents_from_nodes(g, [tnode])
 
         linktype = self.check_links(source, target, verbosity=verbosity)
-        print linktype
 
         # Get the condition for MIT/MITP
         if linktype == 'directed':                                              # linked by a directed link

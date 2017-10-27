@@ -201,14 +201,17 @@ class tigramite_network(object):
                 # Get the index of the contemporaneous link
                 driving_itoj_c_ind = [-d[1] for d in driving_itoj if d[1] == 0]
                 # Get the lag with the maximum lagfunc value
-                lags                      = lagfuncs[j, i, driving_itoj_d_ind]
-                maxlagind                 = np.argmax(lags)
-                driving_itoj_d_ind_unique = driving_itoj_d_ind[maxlagind]
+                if driving_itoj_d_ind != []:
+                    lags                      = lagfuncs[j, i, driving_itoj_d_ind]
+                    maxlagind                 = np.argmax(lags)
+                    driving_itoj_d_ind_unique = driving_itoj_d_ind[maxlagind]
+                else:
+                    driving_itoj_d_ind_unique = None
 
                 # Assemble newnet[i]
                 if contemp and driving_itoj_c_ind != []:
-                    newnet[i] += [(j, -driving_itoj_d_ind_unique), (j, 0)]
-                else:
+                    newnet[i] += [(j, 0)]
+                if driving_itoj_d_ind_unique is not None:
                     newnet[i] += [(j, -driving_itoj_d_ind_unique)]
 
                 # # Get the contemporaneous driving from j to i
