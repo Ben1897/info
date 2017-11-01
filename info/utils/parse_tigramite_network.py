@@ -271,6 +271,7 @@ class tigramite_network(object):
         if taumax is None:
             taumax = self.taumax
 
+        # Conver the network in numpy array format
         varnames = net.keys()
         nvar     = len(varnames)
         networkn = np.zeros((nvar, nvar, taumax+1), dtype=bool)
@@ -279,7 +280,12 @@ class tigramite_network(object):
             for depend in net[target]:
                 source, lag = depend[0], -depend[1]
                 networkn[source, target, lag] = True
-        return networkn
+
+        # Get an 'artificial' lagfuncs for networkn for plotting
+        lagfuncs = np.copy(self.lagfuncs)
+        lagfuncs[np.logical_not(networkn)] = 0.
+
+        return networkn, lagfuncs
 
     def plot(self):
         pass

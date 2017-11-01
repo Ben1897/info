@@ -8,10 +8,11 @@ import numpy as np
 from .info import info
 from ..utils.causal_network import causal_network
 from ..utils.others import reorganize_data
+from ..utils.pdf_computer import pdfComputer
 
 class info_network(object):
 
-    def __init__(self, data, causalDict, taumax=10, kernel='gaussian', pdfest='kde_c', base=2.):
+    def __init__(self, data, causalDict, nx=10, taumax=10, kernel='gaussian', pdfest='kde_c', base=2.):
         """
         Input:
         data       -- the data [numpy array with shape (npoints, ndim)]
@@ -19,6 +20,7 @@ class info_network(object):
                       the keys are the variable at t time [int]
                       the values are the parents of the corresponding node [list of sets].
                       e.g., {0: [(0,-1), (1,-1)], 1: [(0,-2), (1,-1)]}
+        nx         -- the number of bins in each dimension for PDF estimation [int]
         taumax     -- the maximum time lag for generating causal network [int]
         kernel     -- the kernel type [str]
         pdfest     -- the selected approach for computing PDF [string]
@@ -27,6 +29,7 @@ class info_network(object):
         """
         self.data   = data
         self.taumax = int(taumax)
+        self.nx     = int(nx)
         self.pdfest = pdfest
         self.base   = float(base)
         self.kernel = kernel
@@ -43,7 +46,7 @@ class info_network(object):
         if self.network.nvar != self.nvar:
             raise Exception('The numbers of variables in data and the causalDict are not equal!')
 
-    def compute_2n_infotrans(self, source, target, conditioned=True, sidepath=True, normalized=False, verbosity=1):
+    def compute_2n_infotrans(self, source, target, conditioned=True, sidepath=True, nbins=None, normalized=False, keeppdf=False, verbosity=1):
         """
         Compute the information transfer from a source node to a target node.
 
@@ -52,6 +55,7 @@ class info_network(object):
         target      -- the target node [set (var_index, lag)]
         conditioned -- whether including conditions [bool]
         sidepath    -- whether including the contemporaneous sidepaths [bool]
+        nbins       -- the number of bins in each dimension [int]
         normalized  -- whether the calculated info metrics need to be normalized [bool]
 
         Ouput:
@@ -62,18 +66,28 @@ class info_network(object):
         network = self.network
         pdfest  = self.pdfest
         base    = self.base
+        nx      = self.nx
         kernel  = self.kernel
 
         # If not conditioned, just compute the normal information metrics (not the momentary one)
         if not conditioned:
             # Reorganize the data
             data_required = reorganize_data(data, [source, target])
+            # Compute the PDF
+            pdfsolver = pdfComputer(ndim=2, approach=pdfest, bandwidth='silverman', kernel=kernel, base=base)
+            if nbins is not None:
+                _, pdf, cd = pdfsolver.computePDF(data_required, nbins=nbins)
+            else:
+                _, pdf, cd = pdfsolver.computePDF(data_required, nbins=[nx]*2)
             # Compute the information transfer
-            inforesult = info(ndim=2, data=data_required, approach=pdfest, bandwidth='silverman',
-                              kernel=kernel, base=base, conditioned=False)
+            inforesult = info(ndim=2, pdfs=pdf, conditioned=False)
             # Normalize if necessary
             if normalized:
                 inforesult.normalizeinfo()
+
+            # Remove pdf if necessary to save memory
+            if not keeppdf:
+                inforesult.pdfs = None
 
             return inforesult
 
@@ -88,21 +102,33 @@ class info_network(object):
         # Reorganize the data
         data_required = reorganize_data(data, [source, target] + w)
 
+        # Compute the PDF
+        if w:
+            pdfsolver = pdfComputer(ndim='m', approach=pdfest, bandwidth='silverman', kernel=kernel, base=base)
+        else:  # if w is empty
+            pdfsolver = pdfComputer(ndim=2, approach=pdfest, bandwidth='silverman', kernel=kernel, base=base)
+        if nbins is not None:
+            _, pdf, cd = pdfsolver.computePDF(data_required, nbins=nbins)
+        else:
+            _, pdf, cd = pdfsolver.computePDF(data_required, nbins=[nx] * (2+len(w)))
+
         # Compute the information transfer
         if w:
-            inforesult = info(ndim=2, data=data_required, approach=pdfest, bandwidth='silverman',
-                              kernel=kernel, base=base, conditioned=True)
+            inforesult = info(ndim=2, pdfs=pdf, conditioned=True)
         else:
-            inforesult = info(ndim=2, data=data_required, approach=pdfest, bandwidth='silverman',
-                              kernel=kernel, base=base, conditioned=False)
+            inforesult = info(ndim=2, pdfs=pdf, conditioned=False)
 
         # Normalize if necessary
         if normalized:
             inforesult.normalizeinfo()
 
+        # Remove pdf if necessary to save memory
+        if not keeppdf:
+            inforesult.pdfs = None
+
         return inforesult
 
-    def compute_3n_infotrans(self, source1, source2, target, conditioned=True, sidepath=True, normalized=False, verbosity=1):
+    def compute_3n_infotrans(self, source1, source2, target, conditioned=True, sidepath=True, nbins=None, normalized=False, keeppdf=False, verbosity=1):
         """
         Compute the information transfer from two source nodes to a target node.
 
@@ -112,6 +138,7 @@ class info_network(object):
         target      -- the target node [set (var_index, lag)]
         conditioned -- whether including conditions [bool]
         sidepath    -- whether including the contemporaneous sidepaths [bool]
+        nbins       -- the number of bins in each dimension [int]
         normalized  -- whether the calculated info metrics need to be normalized [bool]
 
         Ouput:
@@ -122,18 +149,27 @@ class info_network(object):
         network = self.network
         pdfest  = self.pdfest
         base    = self.base
+        nx      = self.nx
         kernel  = self.kernel
 
         # If not conditioned, just compute the normal information metrics (not the momentary one)
         if not conditioned:
             # Reorganize the data
             data_required = reorganize_data(data, [source1, source2, target])
+            # Compute the PDF
+            pdfsolver = pdfComputer(ndim=3, approach=pdfest, bandwidth='silverman', kernel=kernel, base=base)
+            if nbins is not None:
+                _, pdf, cd = pdfsolver.computePDF(data_required, nbins=nbins)
+            else:
+                _, pdf, cd = pdfsolver.computePDF(data_required, nbins=[nx]*3)
             # Compute the information transfer
-            inforesult = info(ndim=3, data=data_required, approach=pdfest, bandwidth='silverman',
-                              kernel=kernel, base=base, conditioned=False)
+            inforesult = info(ndim=3, pdfs=pdf, conditioned=False)
             # Normalize if necessary
             if normalized:
                 inforesult.normalizeinfo()
+            # Remove pdf if necessary to save memory
+            if not keeppdf:
+                inforesult.pdfs = None
 
             return inforesult
 
@@ -150,21 +186,34 @@ class info_network(object):
 
         # Reorganize the data
         data_required = reorganize_data(data, [source1, source2, target] + w)
+
+        # Compute the PDF
+        if w:
+            pdfsolver = pdfComputer(ndim='m', approach=pdfest, bandwidth='silverman', kernel=kernel, base=base)
+        else:  # if w is empty
+            pdfsolver = pdfComputer(ndim=3, approach=pdfest, bandwidth='silverman', kernel=kernel, base=base)
+        if nbins is not None:
+            _, pdf, cd = pdfsolver.computePDF(data_required, nbins=nbins)
+        else:
+            _, pdf, cd = pdfsolver.computePDF(data_required, nbins=[nx] * (3+len(w)))
+
         # Compute the information transfer
         if w:
-            inforesult = info(ndim=3, data=data_required, approach=pdfest, bandwidth='silverman',
-                              kernel=kernel, base=base, conditioned=True)
+            inforesult = info(ndim=3, pdfs=pdf, conditioned=True)
         else:
-            inforesult = info(ndim=3, data=data_required, approach=pdfest, bandwidth='silverman',
-                              kernel=kernel, base=base, conditioned=False)
+            inforesult = info(ndim=3, pdfs=pdf, conditioned=False)
 
         # Normalize if necessary
         if normalized:
             inforesult.normalizeinfo()
 
+        # Remove pdf if necessary to save memory
+        if not keeppdf:
+            inforesult.pdfs = None
+
         return inforesult
 
-    def compute_2n_infotrans_set(self, source_ind, target_ind, conditioned=True, taumax=5, sidepath=True, normalized=False,verbosity=1):
+    def compute_2n_infotrans_set(self, source_ind, target_ind, conditioned=True, taumax=5, sidepath=True, nbins=None, normalized=False, keeppdf=False, verbosity=1):
         """
         Compute the information transfer from a source node to a target node with lags varying from 1 to taumax
 
@@ -174,6 +223,7 @@ class info_network(object):
         conditioned -- whether including conditions [bool]
         taumax     -- the maximum lag between the source node and the target
         sidepath   -- whether including the contemporaneous sidepaths [bool]
+        nbins      -- the number of bins in each dimension [int]
         normalized -- whether the calculated info metrics need to be normalized [bool]
 
         Ouput:
@@ -198,13 +248,14 @@ class info_network(object):
 
             # Compute the information transfer
             results[i] = self.compute_2n_infotrans(source, target, conditioned=conditioned,
-                                                   sidepath=sidepath, normalized=normalized,
+                                                   sidepath=sidepath, nbins=nbins,
+                                                   normalized=normalized, keeppdf=False,
                                                    verbosity=verbosity)
 
         # Return the results
         return results
 
-    def compute_3n_infotrans_set(self, source1_ind, source2_ind, target_ind, conditioned=True, taumax=5, sidepath=True, normalized=False, verbosity=1):
+    def compute_3n_infotrans_set(self, source1_ind, source2_ind, target_ind, conditioned=True, taumax=5, sidepath=True, nbins=None, normalized=False, keeppdf=False, verbosity=1):
         """
         Compute the information transfer from two source nodes to a target node with lags varying from 1 to taumax
 
@@ -215,6 +266,7 @@ class info_network(object):
         conditioned -- whether including conditions [bool]
         taumax     -- the maximum lag between the source node and the target
         sidepath   -- whether including the contemporaneous sidepaths [bool]
+        nbins      -- the number of bins in each dimension [int]
         normalized -- whether the calculated info metrics need to be normalized [bool]
 
         Output:
@@ -242,8 +294,8 @@ class info_network(object):
                 # Compute the information transfer
                 results[i, j] = self.compute_3n_infotrans(source1, source2, target,
                                                           conditioned=conditioned,
-                                                          sidepath=sidepath,
-                                                          normalized=normalized,
+                                                          sidepath=sidepath, nbins=nbins,
+                                                          normalized=normalized, keeppdf=False,
                                                           verbosity=verbosity)
 
         # Return the results

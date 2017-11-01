@@ -221,16 +221,3 @@ def kde_sklearn(ndim, kernel, bd, Nt, No, coordo, coordt, dtype='float64', rtime
         return pdf, end - start
     else:
         return pdf
-
-
-# Function for calculating the bandwidth
-def silverman(xarray, dtype='float64'):
-    '''
-    Compute the bandwidth by using the Silverman's method using for 1D.
-    Input:
-    xarray -- a numpy array
-    Output: [float]
-    '''
-    std = np.std(xarray)
-    n   = xarray.size
-    return np.array(1.06 * std * n ** (-.2), dtype=dtype)
