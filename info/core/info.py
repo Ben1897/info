@@ -38,7 +38,7 @@ from ..utils.pdf_computer import pdf_computer
 class info(object):
 
     def __init__(self, ndim, data, approach='kde_c', bandwidth='silverman', kernel='gaussian',
-                 base=2, conditioned=False, specific=False):
+                 base=2, conditioned=False, specific=False, averaged=True):
         '''
         Input:
         ndim        -- the number of dimension to be computed [int]
@@ -49,10 +49,12 @@ class info(object):
         base        -- the logrithmatic base (the default is 2) [float/int]
         conditioned -- whether including conditions [bool]
         specific    -- whether calculating the specific PID [bool]
+        averaged    -- whether computing the average value of each info bit or using the traditional discrete formula [averaged]
         '''
-        self.base = base
+        self.base        = base
         self.conditioned = conditioned
-        self.specific = specific
+        self.specific    = specific
+        self.averaged    = averaged
 
         # Check the dimension of the data
         if len(data.shape) > 2:
@@ -101,12 +103,13 @@ class info(object):
         base     = self.base
         data     = self.data
         computer = self.computer
+        averaged = self.averaged
 
         # Compute the pdfs
         _, pdfs = computer(data)
 
         # Compute information metrics
-        self.hx = computeEntropy(pdfs, base=base)
+        self.hx = computeEntropy(pdfs, base=base, averaged=averaged)
 
     def __computeInfo1D_conditioned(self):
         '''
@@ -115,6 +118,7 @@ class info(object):
         base     = self.base
         data     = self.data
         computer = self.computer
+        averaged = self.averaged
 
         # Compute the pdfs
         _, pdfs  = computer.computePDF(data)
@@ -122,10 +126,10 @@ class info(object):
         _, wpdfs = computer.computePDF(data[:,1:])
 
         # Compute all the entropies
-        self.hw    = computeEntropy(wpdfs, base=base)    # H(W)
-        self.hx    = computeEntropy(xpdfs, base=base)    # H(X)
-        self.hxw   = computeEntropy(pdfs, base=base)     # H(X,W)
-        self.hx_w  = self.hxw - self.hw                  # H(X|W)
+        self.hw    = computeEntropy(wpdfs, base=base, averaged=averaged)    # H(W)
+        self.hx    = computeEntropy(xpdfs, base=base, averaged=averaged)    # H(X)
+        self.hxw   = computeEntropy(pdfs, base=base, averaged=averaged)     # H(X,W)
+        self.hx_w  = self.hxw - self.hw                                     # H(X|W)
 
     def __computeInfo2D(self):
         '''
@@ -137,6 +141,7 @@ class info(object):
         base     = self.base
         data     = self.data
         computer = self.computer
+        averaged = self.averaged
 
         # Compute the pdfs
         _, pdfs  = computer.computePDF(data)
@@ -145,12 +150,12 @@ class info(object):
 
         # Compute H(X), H(Y) and H(X,Y)
         # print xpdfs
-        self.hx  = computeEntropy(xpdfs, base=base)  # H(X)
-        self.hy  = computeEntropy(ypdfs, base=base)  # H(Y)
-        self.hxy = computeEntropy(pdfs, base=base)   # H(X,Y)
-        self.hy_x = self.hxy - self.hx               # H(Y|X)
-        self.hx_y = self.hxy - self.hy               # H(X|Y)
-        self.ixy  = self.hx + self.hy - self.hxy     # I(X;Y)
+        self.hx  = computeEntropy(xpdfs, base=base, averaged=averaged)  # H(X)
+        self.hy  = computeEntropy(ypdfs, base=base, averaged=averaged)  # H(Y)
+        self.hxy = computeEntropy(pdfs, base=base, averaged=averaged)   # H(X,Y)
+        self.hy_x = self.hxy - self.hx                                  # H(Y|X)
+        self.hx_y = self.hxy - self.hy                                  # H(X|Y)
+        self.ixy  = self.hx + self.hy - self.hxy                        # I(X;Y)
 
     def __computeInfo2D_conditioned(self):
         '''
@@ -159,6 +164,7 @@ class info(object):
         base       = self.base
         data       = self.data
         computer   = self.computer
+        averaged   = self.averaged
         npts, ndim = data.shape
 
         # Compute the pdfs
@@ -171,21 +177,21 @@ class info(object):
         _, ywpdfs = computer.computePDF(data[:,[1]+range(2,ndim)])
 
         # Compute all the entropies
-        self.hw    = computeEntropy(wpdfs, base=base)    # H(W)
-        self.hx    = computeEntropy(xpdfs, base=base)    # H(X)
-        self.hy    = computeEntropy(ypdfs, base=base)    # H(Y)
-        self.hxy   = computeEntropy(xypdfs, base=base)   # H(X,Y)
-        self.hxw   = computeEntropy(xwpdfs, base=base)   # H(X,W)
-        self.hyw   = computeEntropy(ywpdfs, base=base)   # H(Y,W)
-        self.hxyw  = computeEntropy(pdfs, base=base)     # H(X,Y,W)
-        self.hx_w  = self.hxw - self.hw                  # H(X|W)
-        self.hy_w  = self.hyw - self.hw                  # H(Y|W)
-        self.hx_y  = self.hxy - self.hy                  # H(X|Y)
-        self.hy_x  = self.hxy - self.hx                  # H(Y|X)
+        self.hw    = computeEntropy(wpdfs, base=base, averaged=averaged)    # H(W)
+        self.hx    = computeEntropy(xpdfs, base=base, averaged=averaged)    # H(X)
+        self.hy    = computeEntropy(ypdfs, base=base, averaged=averaged)    # H(Y)
+        self.hxy   = computeEntropy(xypdfs, base=base, averaged=averaged)   # H(X,Y)
+        self.hxw   = computeEntropy(xwpdfs, base=base, averaged=averaged)   # H(X,W)
+        self.hyw   = computeEntropy(ywpdfs, base=base, averaged=averaged)   # H(Y,W)
+        self.hxyw  = computeEntropy(pdfs, base=base, averaged=averaged)     # H(X,Y,W)
+        self.hx_w  = self.hxw - self.hw                                     # H(X|W)
+        self.hy_w  = self.hyw - self.hw                                     # H(Y|W)
+        self.hx_y  = self.hxy - self.hy                                     # H(X|Y)
+        self.hy_x  = self.hxy - self.hx                                     # H(Y|X)
 
         # Compute all the conditional mutual information
-        self.ixy   = self.hx + self.hy - self.hxy               # I(X;Y)
-        self.ixy_w = self.hxw + self.hyw - self.hw - self.hxyw  # I(X;Y|W)
+        self.ixy   = self.hx + self.hy - self.hxy                           # I(X;Y)
+        self.ixy_w = self.hxw + self.hyw - self.hw - self.hxyw              # I(X;Y|W)
 
     def __computeInfo3D(self):
         '''
@@ -199,6 +205,7 @@ class info(object):
         base       = self.base
         data       = self.data
         computer   = self.computer
+        averaged   = self.averaged
         npts, ndim = data.shape
 
         # Compute the pdfs
@@ -211,28 +218,28 @@ class info(object):
         _, yzpdfs = computer.computePDF(data[:,[1,2]])
 
         # Compute H(X), H(Y) and H(Z)
-        self.hx   = computeEntropy(xpdfs, base=base)   # H(X)
-        self.hy   = computeEntropy(ypdfs, base=base)   # H(Y)
-        self.hz   = computeEntropy(zpdfs, base=base)   # H(Z)
-        self.hxy  = computeEntropy(xypdfs, base=base)  # H(X,Y)
-        self.hyz  = computeEntropy(yzpdfs, base=base)  # H(Y,Z)
-        self.hxz  = computeEntropy(xzpdfs, base=base)  # H(X,Z)
-        self.hxyz = computeEntropy(pdfs, base=base)    # H(X,Y,Z)
+        self.hx   = computeEntropy(xpdfs, base=base, averaged=averaged)   # H(X)
+        self.hy   = computeEntropy(ypdfs, base=base, averaged=averaged)   # H(Y)
+        self.hz   = computeEntropy(zpdfs, base=base, averaged=averaged)   # H(Z)
+        self.hxy  = computeEntropy(xypdfs, base=base, averaged=averaged)  # H(X,Y)
+        self.hyz  = computeEntropy(yzpdfs, base=base, averaged=averaged)  # H(Y,Z)
+        self.hxz  = computeEntropy(xzpdfs, base=base, averaged=averaged)  # H(X,Z)
+        self.hxyz = computeEntropy(pdfs, base=base, averaged=averaged)    # H(X,Y,Z)
 
         # Compute I(X;Z), I(Y;Z) and I(X;Y)
-        self.ixy = self.hx + self.hy - self.hxy  # I(X;Z)
-        self.ixz = self.hx + self.hz - self.hxz  # I(Y;Z)
-        self.iyz = self.hy + self.hz - self.hyz  # I(X;Y)
+        self.ixy = self.hx + self.hy - self.hxy                           # I(X;Z)
+        self.ixz = self.hx + self.hz - self.hxz                           # I(Y;Z)
+        self.iyz = self.hy + self.hz - self.hyz                           # I(X;Y)
 
         # Compute II (= I(X;Y;Z))
-        self.itot = self.hxy + self.hz - self.hxyz   # I(X,Y;Z)
-        self.ii   = self.itot - self.ixz - self.iyz  # interaction information
+        self.itot = self.hxy + self.hz - self.hxyz                        # I(X,Y;Z)
+        self.ii   = self.itot - self.ixz - self.iyz                       # interaction information
 
         # Compute R(Z;X,Y)
-        self.rmmi    = np.min([self.ixz, self.iyz])               # RMMI (Eq.(7) in Allison)
-        self.isource = self.ixy / np.min([self.hx, self.hy])      # Is (Eq.(9) in Allison)
-        self.rmin    = -self.ii if self.ii < 0 else 0             # Rmin (Eq.(10) in Allison)
-        self.r       = self.rmin + self.isource*(self.rmmi-self.rmin)  # Rs (Eq.(11) in Allison)
+        self.rmmi    = np.min([self.ixz, self.iyz])                       # RMMI (Eq.(7) in Allison)
+        self.isource = self.ixy / np.min([self.hx, self.hy])              # Is (Eq.(9) in Allison)
+        self.rmin    = -self.ii if self.ii < 0 else 0                     # Rmin (Eq.(10) in Allison)
+        self.r       = self.rmin + self.isource*(self.rmmi-self.rmin)     # Rs (Eq.(11) in Allison)
         # self.r       = self.rmmi
 
         # Compute S(Z;X,Y), U(Z;X) and U(Z;Y)
@@ -260,6 +267,7 @@ class info(object):
         base       = self.base
         data       = self.data
         computer   = self.computer
+        averaged   = self.averaged
         npts, ndim = data.shape
 
         # Compute the pdfs
@@ -279,24 +287,24 @@ class info(object):
         _, xzwpdfs = computer.computePDF(data[:,[0,2]+range(3,ndim)])
 
         # Compute all the entropies
-        self.hw    = computeEntropy(wpdfs, base=base)    # H(W)
-        self.hx    = computeEntropy(xpdfs, base=base)    # H(X)
-        self.hy    = computeEntropy(ypdfs, base=base)    # H(Y)
-        self.hz    = computeEntropy(zpdfs, base=base)    # H(Z)
-        self.hxw   = computeEntropy(xwpdfs, base=base)   # H(X,W)
-        self.hyw   = computeEntropy(ywpdfs, base=base)   # H(Y,W)
-        self.hzw   = computeEntropy(zwpdfs, base=base)   # H(Z,W)
-        self.hxyw  = computeEntropy(xywpdfs, base=base)  # H(X,Y,W)
-        self.hyzw  = computeEntropy(yzwpdfs, base=base)  # H(Y,Z,W)
-        self.hxzw  = computeEntropy(xzwpdfs, base=base)  # H(X,Z,W)
-        self.hxyzw = computeEntropy(pdfs, base=base)     # H(X,Y,Z,W)
-        self.hx_w  = self.hxw - self.hw                  # H(X|W)
-        self.hy_w  = self.hyw - self.hw                  # H(Y|W)
+        self.hw    = computeEntropy(wpdfs, base=base, averaged=averaged)    # H(W)
+        self.hx    = computeEntropy(xpdfs, base=base, averaged=averaged)    # H(X)
+        self.hy    = computeEntropy(ypdfs, base=base, averaged=averaged)    # H(Y)
+        self.hz    = computeEntropy(zpdfs, base=base, averaged=averaged)    # H(Z)
+        self.hxw   = computeEntropy(xwpdfs, base=base, averaged=averaged)   # H(X,W)
+        self.hyw   = computeEntropy(ywpdfs, base=base, averaged=averaged)   # H(Y,W)
+        self.hzw   = computeEntropy(zwpdfs, base=base, averaged=averaged)   # H(Z,W)
+        self.hxyw  = computeEntropy(xywpdfs, base=base, averaged=averaged)  # H(X,Y,W)
+        self.hyzw  = computeEntropy(yzwpdfs, base=base, averaged=averaged)  # H(Y,Z,W)
+        self.hxzw  = computeEntropy(xzwpdfs, base=base, averaged=averaged)  # H(X,Z,W)
+        self.hxyzw = computeEntropy(pdfs, base=base, averaged=averaged)     # H(X,Y,Z,W)
+        self.hx_w  = self.hxw - self.hw                                     # H(X|W)
+        self.hy_w  = self.hyw - self.hw                                     # H(Y|W)
 
         # Compute all the conditional mutual information
-        self.ixy_w = self.hxw + self.hyw - self.hw - self.hxyw  # I(X;Y|W)
-        self.ixz_w = self.hxw + self.hzw - self.hw - self.hxzw  # I(X;Z|W)
-        self.iyz_w = self.hyw + self.hzw - self.hw - self.hyzw  # I(Y;Z|W)
+        self.ixy_w = self.hxw + self.hyw - self.hw - self.hxyw              # I(X;Y|W)
+        self.ixz_w = self.hxw + self.hzw - self.hw - self.hxzw              # I(X;Z|W)
+        self.iyz_w = self.hyw + self.hzw - self.hw - self.hyzw              # I(Y;Z|W)
 
         ## (TODO: to be revised) Ensure that they are nonnegative
         if self.ixy_w < 0 and np.abs(self.ixy_w / self.hw) < 1e-5:
@@ -315,16 +323,16 @@ class info(object):
         self.itot = self.ii + self.ixz_w + self.iyz_w
 
         # Compute R(Z;X,Y|W)
-        self.rmmi    = np.min([self.ixz_w, self.iyz_w])                # RMMIc
-        self.isource = self.ixy_w / np.min([self.hxw, self.hyw])       # Isc
-        # self.isource = self.ixy_w / np.min([self.hx_w, self.hy_w])       # Isc
-        self.rmin    = -self.ii if self.ii < 0 else 0                  # Rminc
-        self.r       = self.rmin + self.isource*(self.rmmi-self.rmin)  # Rc
+        self.rmmi    = np.min([self.ixz_w, self.iyz_w])                     # RMMIc
+        self.isource = self.ixy_w / np.min([self.hxw, self.hyw])            # Isc
+        # self.isource = self.ixy_w / np.min([self.hx_w, self.hy_w])        # Isc
+        self.rmin    = -self.ii if self.ii < 0 else 0                       # Rminc
+        self.r       = self.rmin + self.isource*(self.rmmi-self.rmin)       # Rc
 
         # Compute S(Z;X,Y|W), U(Z;X|W) and U(Z;Y|W)
-        self.s = self.r + self.ii       # Sc
-        self.uxz = self.ixz_w - self.r  # U(X;Z|W)
-        self.uyz = self.iyz_w - self.r  # U(Y;Z|W)
+        self.s = self.r + self.ii                                           # Sc
+        self.uxz = self.ixz_w - self.r                                      # U(X;Z|W)
+        self.uyz = self.iyz_w - self.r                                      # U(Y;Z|W)
 
     def __assemble(self):
         '''
@@ -547,14 +555,17 @@ def equal(a, b, e=1e-10):
     '''Check whether the two numbers are equal'''
     return np.abs(a - b) < e
 
-def computeEntropy(pdfs, base=2):
+def computeEntropy(pdfs, base=2, averaged=True):
     '''Compute the entropy H(X).'''
     # Calculate the log of pdf
     pdfs_log = np.ma.log(pdfs)
     pdfs_log = pdfs_log.filled(0) / np.log(base)
 
     # Calculate H(X)
-    return -np.sum(pdfs*pdfs_log)
+    if averaged:
+        return -np.mean(pdfs_log)
+    elif not averaged:
+        return -np.sum(pdfs*pdfs_log)
 
 
 def computeConditionalInfo(xpdfs, ypdfs, xypdfs, base=2):

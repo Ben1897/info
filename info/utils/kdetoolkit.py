@@ -81,9 +81,8 @@ def kde_c(ndim, kernel, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False
     pdf   = func(ndim_p, Nt_p, No_p, ktype_p, bd_p, coordo_p, coordt_p)
     end   = time()
 
-    # Normalize pdf and reshape pdf
+    # Reshape pdf
     pdf = np.array(list(pdf[:Nt]), dtype=dtype)
-    pdf = pdf / pdf.sum()
 
     # Return results
     if rtime:
@@ -155,10 +154,8 @@ def kde_cuda(ndim, kernel, bd, Nt, No, coordo, coordt, dtype='float64', rtime=Fa
     pdf   = func(ndim_p, Nt_p, No_p, ktype_p, bd_p, coordo_p, coordt_p)
     end   = time()
 
-    # Normalize pdf and reshape pdf
+    # Shape pdf
     pdf = np.array(list(pdf[:Nt]), dtype=dtype)
-    # print pdf.sum(), pdf.min(), pdf.max()
-    pdf = pdf / pdf.sum()
 
     # Return results
     if rtime:
@@ -212,9 +209,6 @@ def kde_sklearn(ndim, kernel, bd, Nt, No, coordo, coordt, dtype='float64', rtime
     # print Nt, No, end, start, end-start
 
     pdf = np.exp(log_pdf, dtype=dtype)
-
-    # Normalize the PDF
-    pdf = pdf / np.sum(pdf)
 
     # Return results
     if rtime:

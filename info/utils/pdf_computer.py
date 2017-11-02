@@ -64,7 +64,7 @@ class pdf_computer(object):
         elif approach == 'kde_cuda':
             self.estimator = kde_cuda
 
-    def computePDF(self, data):
+    def computePDF(self, data, normalized=False):
         '''
         Compute the PDF based on selected approach.
         It should be noted that the mixed distribution case (atom-at-zero effect)
@@ -88,6 +88,10 @@ class pdf_computer(object):
         # Estimate PDF
         pdf, t = estimator(ndim=ndim, kernel=kernel, bd=bd, Nt=npts, No=npts,
                            coordo=data, coordt=data, dtype=float64, rtime=True)
+
+        # Normalize the PDF
+        if normalized:
+            pdf = pdf / np.sum(pdf)
 
         return t, pdf
 
