@@ -11,6 +11,7 @@ from ctypes import *
 import os
 import numpy as np
 from sklearn.neighbors.kde import KernelDensity
+from scipy.stats import gaussian_kde
 from time import time
 
 
@@ -204,11 +205,56 @@ def kde_sklearn(ndim, kernel, bd, Nt, No, coordo, coordt, dtype='float64', rtime
     kde_skl = KernelDensity(bandwidth=bd[0], kernel=kernel.lower())
     kde_skl.fit(coordo)
     log_pdf = kde_skl.score_samples(coordt)
+    pdf = np.exp(log_pdf, dtype=dtype)
+
     end = time()
 
-    # print Nt, No, end, start, end-start
+    # Return results
+    if rtime:
+        return pdf, end - start
+    else:
+        return pdf
 
-    pdf = np.exp(log_pdf, dtype=dtype)
+# Function for estimating PDF using scipy.stats.gaussian_kde
+def kde_scipy(ndim, kernel, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False):
+    '''
+    Calculating PDF by using KDE based on scipy.stats.gaussian_kde method.
+    Inputs:
+        ndim   -- the number of dimensions/variables [int]
+        kernel -- the type of the kernel [str]
+        bd     -- a list of bandwidths for each dimension/variable [list]
+        Nt     -- the number of locations whose PDF will be estimated [int]
+        No     -- the number of sampled locations [int]
+        coordo -- the sampled locations [ndarray with shape(No, ndim)]
+        coordt -- the locations to be estimated [ndarray with shape(Nt, ndim)]
+    Outputs:
+        pdf    -- the estimated pdf [ndarray with shape(Nt,)]
+    '''
+    # Check kernel types
+    if kernel.lower() not in allowed_kernels:
+        raise Exception('Unknown kernel type %s' % kernel)
+
+    # Convert the float value of the bd into a list in a numpy array
+    if ndim == 1 and isinstance(bd, float):
+        bd = np.array([bd], dtype='float64')
+    # Check dimensions
+    if (No, ndim) != coordo.shape and (No,) != coordo.shape:
+        raise Exception('Wrong dimension and size of coordo!')
+    if (Nt, ndim) != coordt.shape and (Nt,) != coordt.shape:
+        print Nt, ndim, coordt.shape
+        raise Exception('Wrong dimension and size of coordt!')
+    if len(bd) != ndim:
+        raise Exception('The length of the bandwidht does not equal to the number of the dimensions!')
+
+    # Reshape coordt when ndim is 1 and the shape is (Nt,) to the shape (Nt, 1)
+    if ndim == 1 and coordt.shape == (Nt,):
+        coordt = coordt[:, np.newaxis]
+
+    # Calculate the pdf and compute the time
+    start = time()
+    kde = gaussian_kde(coordo.T, bw_method='silverman')
+    pdf = kde(coordt.T)
+    end = time()
 
     # Return results
     if rtime:

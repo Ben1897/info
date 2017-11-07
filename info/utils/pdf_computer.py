@@ -25,7 +25,7 @@ import numpy as np
 from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors.kde import KernelDensity
 
-from .kdetoolkit import kde_c, kde_cuda, kde_sklearn
+from .kdetoolkit import kde_c, kde_cuda, kde_sklearn, kde_scipy
 
 
 # data types
@@ -36,7 +36,7 @@ integer = int
 
 class pdf_computer(object):
 
-    allowedApproach = ['fixedBin', 'kde', 'kde_cuda', 'kde_c']
+    allowedApproach = ['kde_sklearn', 'kde_scipy', 'kde_cuda', 'kde_c']
     allowedBandwidthMethod = ['silverman', 'crossvalidation']
     allowedKernels = ['gaussian', 'epanechnikov']
 
@@ -57,12 +57,14 @@ class pdf_computer(object):
         self.kernel = kernel
 
         # Assign the estimator
-        if approach == 'kde':
+        if approach == 'kde_sklearn':
             self.estimator = kde_sklearn
         elif approach == 'kde_c':
             self.estimator = kde_c
         elif approach == 'kde_cuda':
             self.estimator = kde_cuda
+        elif approach == 'kde_scipy':
+            self.estimator = kde_scipy
 
     def computePDF(self, data, normalized=False):
         '''
@@ -108,13 +110,13 @@ class pdf_computer(object):
         for i in range(ndim):
             xarray   = data[:, i]
             if bandwidthType == 'silverman':
-                h = self.silverman(xarray)
+                h = self.silverman(xarray, ndim)
             elif bandwidthType == 'crossvalidation':
                 h = self.crossValidation(data)
             hlist[i] = h
         return hlist
 
-    def silverman(self, xarray):
+    def silverman(self, xarray, ndim):
         '''
         Compute the band width by using the Silverman's method using for 1D.
         Input:
@@ -127,7 +129,11 @@ class pdf_computer(object):
         if n == 1:
             raise Exception('There is only one value in xarray!')
 
-        h   = 1.06 * std * n ** (-.2)
+        # h  = 1.06 * std * n ** (-.2)
+        # Ref:
+        # Eq.(6.44) in Scott's Multivariate Density Estimation: Theory, Practice, and Visualization, Second Edition (2015)
+        h  = (4./(ndim+2))**(1./(ndim+4)) * std * n ** (-1./(ndim+4))
+        # h  = (4./(ndim+2))**(1./(ndim+4)) * n ** (-1./(ndim+4))
 
         return h
 
