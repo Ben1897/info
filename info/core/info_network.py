@@ -43,7 +43,7 @@ class info_network(object):
         if self.network.nvar != self.nvar:
             raise Exception('The numbers of variables in data and the causalDict are not equal!')
 
-    def compute_2n_infotrans(self, source, target, conditioned=True, sidepath=True, normalized=False, verbosity=1):
+    def compute_2n_infotrans(self, source, target, conditioned=True, sidepath=True, causalpath=True, normalized=False, verbosity=1):
         """
         Compute the information transfer from a source node to a target node.
 
@@ -52,6 +52,7 @@ class info_network(object):
         target      -- the target node [set (var_index, lag)]
         conditioned -- whether including conditions [bool]
         sidepath    -- whether including the contemporaneous sidepaths [bool]
+        causalpath  -- whether computing MITP or MIT [bool]
         normalized  -- whether the calculated info metrics need to be normalized [bool]
 
         Ouput:
@@ -83,7 +84,10 @@ class info_network(object):
             return None
 
         # Generate the MIT/MITP conditions
-        w = network.search_mit_condition(source, target, sidepath=sidepath, verbosity=verbosity)
+        if causalpath:
+            w = network.search_mitp_condition(source, target, sidepath=sidepath, verbosity=verbosity)
+        else:
+            w = network.search_mit_condition(source, target, sidepath=sidepath, verbosity=verbosity)
 
         # Reorganize the data
         data_required = reorganize_data(data, [source, target] + w)
@@ -164,7 +168,7 @@ class info_network(object):
 
         return inforesult
 
-    def compute_2n_infotrans_set(self, source_ind, target_ind, conditioned=True, taumax=5, sidepath=True, normalized=False,verbosity=1):
+    def compute_2n_infotrans_set(self, source_ind, target_ind, conditioned=True, taumax=5, sidepath=True, causalpath=True, normalized=False,verbosity=1):
         """
         Compute the information transfer from a source node to a target node with lags varying from 1 to taumax
 
@@ -174,6 +178,7 @@ class info_network(object):
         conditioned -- whether including conditions [bool]
         taumax     -- the maximum lag between the source node and the target
         sidepath   -- whether including the contemporaneous sidepaths [bool]
+        causalpath  -- whether computing MITP or MIT [bool]
         normalized -- whether the calculated info metrics need to be normalized [bool]
 
         Ouput:
@@ -199,7 +204,7 @@ class info_network(object):
             # Compute the information transfer
             results[i] = self.compute_2n_infotrans(source, target, conditioned=conditioned,
                                                    sidepath=sidepath, normalized=normalized,
-                                                   verbosity=verbosity)
+                                                   causalpath=causalpath, verbosity=verbosity)
 
         # Return the results
         return results

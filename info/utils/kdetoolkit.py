@@ -19,6 +19,7 @@ from time import time
 dir_path = os.path.dirname(os.path.realpath(__file__))
 kde_path = os.path.join(dir_path, 'kde.so')
 cudakde_path = os.path.join(dir_path, 'cuda_kde.so')
+cudakdegeneral_path = os.path.join(dir_path, 'cuda_kde_general.so')
 
 
 allowed_kernels = ['epanechnikov', 'gaussian']
@@ -91,6 +92,75 @@ def kde_c(ndim, kernel, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False
     else:
         return pdf
 
+# Function for estimating PDF using c-cuda based the general multivaraite kde
+def kde_cuda_general(ndim, kernel, bdinv, bddet, Nt, No, coordo, coordt, dtype='float64', rtime=False):
+    '''
+    Calculating PDF by using KDE (Epanechnikov) based on C-CUDA code.
+    Inputs:
+        ndim   -- the number of dimensions/variables [int]
+        kernel -- the type of the kernel [str]
+        bdinv  -- the inverse bandwidth matrix [ndarray with shape (ndim, ndim)]
+        bddet  -- the determinant of the bandwidth matrix [float]
+        Nt     -- the number of locations whose PDF will be estimated [int]
+        No     -- the number of sampled locations [int]
+        coordo -- the sampled locations [ndarray with shape(No, ndim)]
+        coordt -- the locations to be estimated [ndarray with shape(Nt, ndim)]
+    Outputs:
+        pdf    -- the estimated pdf [ndarray with shape(Nt,)]
+    '''
+    # Check the kernel type
+    if kernel.lower() != 'gaussian':
+        print "Only Gaussian kernel is available for computing the general multivariate KDE for now!"
+
+    # Convert the float value of the bd into a list in a numpy array
+    if ndim == 1 and isinstance(bdinv, float):
+        bdinv = np.array([bdinv], dtype='float64')
+    elif bdinv.shape != (ndim,ndim):
+        raise Exception('Wrong dimension of the bandwidth matrix!')
+
+    # Check dimensions
+    if (No, ndim) != coordo.shape and (No,) != coordo.shape:
+        raise Exception('Wrong dimension and size of coordo!')
+    if (Nt, ndim) != coordt.shape and (Nt,) != coordt.shape:
+        print Nt, ndim, coordt.shape
+        raise Exception('Wrong dimension and size of coordt!')
+
+    # Initialize the cuda-based shared library
+    # dll           = ctypes.CDLL('./cuda_kde.so')
+    dll           = ctypes.CDLL(cudakdegeneral_path)
+    func          = dll.cuda_kde_general
+    func.argtypes = [c_int, c_int, c_int, c_double,
+                     POINTER(c_double), POINTER(c_double), POINTER(c_double)]
+    func.restype  = POINTER(c_double)
+
+    # Convert coordo, coordt to 1d array
+    coordo, coordt = coordo.reshape(ndim*No), coordt.reshape(ndim*Nt)
+
+    # Convert bdinv to 1d array
+    bdinv = bdinv.reshape(ndim*ndim)
+
+    # Mapping data type to ctypes
+    ndim_p   = c_int(ndim)
+    Nt_p     = c_int(Nt)
+    No_p     = c_int(No)
+    bddet_p  = c_double(bddet)
+    bdinv_p  = bdinv.ctypes.data_as(POINTER(c_double))
+    coordo_p = coordo.ctypes.data_as(POINTER(c_double))
+    coordt_p = coordt.ctypes.data_as(POINTER(c_double))
+
+    # Calculate the pdf and compute the time
+    start = time()
+    pdf   = func(ndim_p, Nt_p, No_p, bddet_p, bdinv_p, coordo_p, coordt_p)
+    end   = time()
+
+    # Shape pdf
+    pdf = np.array(list(pdf[:Nt]), dtype=dtype)
+
+    # Return results
+    if rtime:
+        return pdf, end - start
+    else:
+        return pdf
 
 # Function for estimating PDF using c-cuda based kde
 def kde_cuda(ndim, kernel, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False):

@@ -1,13 +1,8 @@
 # The make file is used to generate the shared library of the c code and
 # the cuda code for calculating KDE
-#
-# @Author: Peishi Jiang <Ben1897>
-# @Date:   2017-02-27T16:56:56-06:00
-# @Email:  shixijps@gmail.com
-# @Last modified by:   Ben1897
-# @Last modified time: 2017-03-01T11:57:57-06:00
 
-all: kde.so kde1d.so cuda_kde.so cuda_kde1d.so
+# all: kde.so kde1d.so cuda_kde.so cuda_kde_general.so cuda_kde1d.so
+all: cuda_kde.so cuda_kde_general.so
 
 # Generate the share library from kde.c
 kde.so: kde.o
@@ -22,6 +17,9 @@ kde1d.o: kde1d.c
 # Generate the share library from cuda_kde.cu
 cuda_kde.so: cuda_kde.cu
 	nvcc --ptxas-options=-v --compiler-options '-fPIC' -o cuda_kde.so --shared cuda_kde.cu
+# Generate the share library from cuda_kde_general.cu
+cuda_kde_general.so: cuda_kde_general.cu
+	nvcc --ptxas-options=-v --compiler-options '-fPIC' -o cuda_kde_general.so --shared cuda_kde_general.cu
 # Generate the share library from cuda_kde1d.cu
 cuda_kde1d.so: cuda_kde1d.cu
 	nvcc --ptxas-options=-v --compiler-options '-fPIC' -o cuda_kde1d.so --shared cuda_kde1d.cu

@@ -73,7 +73,7 @@ double *kde(int nvar, int Nt, int No, int ktype, double *bd, double *coordo, dou
         }
         // Gaussian kernel
         else if(kernel == 2){
-          kernel = 1./sqrt(2*M_PI) * exp(-1./2.*pow(u,2));
+          kernel = 1./sqrt(2.*M_PI) * exp(-1./2.*pow(u,2.));
           prod_kern = prod_kern * kernel/bd[k];
         }
         else{

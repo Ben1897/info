@@ -213,9 +213,9 @@ class causal_network(object):
         Input:
         source -- the source node [set (var_index, lag)]
         target -- the target node [set (var_index, lag)]
-        sidepath --  whether including the contemporaneous sidepaths [bool]
+        sidepath -- whether including the contemporaneous sidepaths [bool]
         Output:
-        the condition for MIT or MITP [list of sets]
+        the condition for MIT [list of sets]
 
         """
         g, nvar = self.g, self.nvar
@@ -233,14 +233,73 @@ class causal_network(object):
 
         linktype = self.check_links(source, target, verbosity=verbosity)
 
-        # Get the condition for MIT/MITP
-        if linktype == 'directed':                                              # linked by a directed link
+        # Get the condition for MIT
+        if linktype == 'contemporaneous':                                     # linked by a contemporaneous undirected link
+            w1 = get_parents_from_nodes(g, [snode])
+            w2 = get_parents_from_nodes(g, [tnode])
+            w3 = exclude_intersection(get_neighbors_from_nodes(g, [snode]), [tnode])
+            w4 = exclude_intersection(get_neighbors_from_nodes(g, [tnode]), [snode])
+            w5 = get_parents_from_nodes(w3)
+            w6 = get_parents_from_nodes(w4)
+            w  = union([w1, w2, w3, w4, w5, w6])
+
+        else:                                              # linked by a directed link
             # w = union([pcpath, exclude_intersection(pt, cpath)])
             w1 = get_parents_from_nodes(g, [snode])
             w2 = exclude_intersection(get_parents_from_nodes(g, [tnode]), [snode])
             w = union([w1, w2])
 
-        elif linktype == 'causalpath':                                              # linked by a causal path
+        w = convert_nodes_to_listofset(w, nvar)
+
+        if verbosity:
+            print "The link type between %s and %s is %s" % (source, target, linktype)
+            if linktype == 'causalpath' and verbosity > 1:
+                print "The path from %s to %s is ---" % (source, target)
+                print [convert_nodes_to_listofset(path, nvar) for path in cpathnested]
+            print "The number of conditions from %s to %s is %d, including:" % (source, target, len(w))
+            print w
+
+        return w
+
+    def search_mitp_condition(self, source, target, sidepath=False, verbosity=1):
+        """
+        Find the conditions for calculating the momentary information transfer (MIT) between between a source and a target
+        based on the link type:
+            'directed'        -- the condition for MIT
+            'causalpath'      -- the condition for MITP (with or without sidepath effect based on the input sidepath)
+            'contemporaneous' -- the condition for MIT for two contemporaneous nodes
+            'contempsidepath' -- no condition
+
+        Input:
+        source -- the source node [set (var_index, lag)]
+        target -- the target node [set (var_index, lag)]
+        sidepath -- whether including the contemporaneous sidepaths [bool]
+        Output:
+        the condition for MITP [list of sets]
+
+        """
+        g, nvar = self.g, self.nvar
+
+        # Check whether the node is in the causal network
+        self.__check_node(source)
+        self.__check_node(target)
+
+        # Get the node number
+        snode = get_node_number(source, nvar, 0)
+        tnode = get_node_number(target, nvar, 0)
+
+        # Get the parents of the target node
+        pt = get_parents_from_nodes(g, [tnode])
+
+        linktype = self.check_links(source, target, verbosity=verbosity)
+
+        # Get the condition for MITP
+        if linktype not in ['causalpath', 'directed']:                                              # linked by a directed link
+            w = []
+            if verbosity == 1:
+                print "The two nodes %s and %s are not connected by a causal path!" % (source, target)
+
+        else:                                              # linked by a causal path
             # Get the causal path, the parent(s) of the causal path, the neighbor(s) in the contemporaneous sidepath(s)
             # and the parents of the neighbor(s) of the source
             cpathnested, pcpath, cpath, psidepathneighbor, sidepathneighbor = get_path_nodes_and_their_parents(g, snode, tnode)
@@ -250,23 +309,6 @@ class causal_network(object):
                 w  = union([w1, w2])
             else:          # without sidepath
                 w = union([pcpath, exclude_intersection(pt, cpath)])
-
-        elif linktype == 'contemporaneous':                                     # linked by a contemporaneous undirected link
-            w1 = get_parents_from_nodes(g, [snode])
-            w2 = get_parents_from_nodes(g, [tnode])
-            w3 = exclude_intersection(get_neighbors_from_nodes(g, [snode]), [tnode])
-            w4 = exclude_intersection(get_neighbors_from_nodes(g, [tnode]), [snode])
-            w5 = get_parents_from_nodes(w3)
-            w6 = get_parents_from_nodes(w4)
-            w  = union([w1, w2, w3, w4, w5, w6])
-
-        elif linktype == 'contempsidepath':
-            w = []
-            if verbosity == 1:
-                print "The two nodes %s and %s are connected by a contempraneous sidepath, thus no condition returned." % (source, target)
-
-        else:
-            w = []
 
         w = convert_nodes_to_listofset(w, nvar)
 

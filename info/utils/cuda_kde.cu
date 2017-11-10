@@ -1,10 +1,13 @@
 /**
-* @Author: Peishi Jiang <Ben1897>
-* @Date:   2017-02-28T13:30:43-06:00
-* @Email:  shixijps@gmail.com
-* @Last modified by:   Ben1897
-* @Last modified time: 2017-03-02T12:33:56-06:00
-*/
+ * Kernel Density Estimation Implementation, including Gaussian and Epanechnikov kernels
+ * with product kernels for multivariate density estimation
+ *
+ * @Author: Peishi Jiang <Ben1897>
+ * @Date:   2017-02-28T13:30:43-06:00
+ * @Email:  shixijps@gmail.com
+ * @Last modified by:   Ben1897
+ * @Last modified time: 2017-03-02T12:33:56-06:00
+ */
 /**
  * Include all the packages
  */
@@ -162,10 +165,10 @@ double *cuda_kde(int nvar, int Nt, int No, int ktype, double *bd, double *coordo
   /* const dim3 block_size(blockWidth, 1, 1); */
   /* const dim3 grid_size(blocksX, 1, 1); */
   if(ktype == 1) {
-    gaussian_kernel<<<512,512>>>(d_pdfset, d_coordo, d_coordt, d_bd, No, Nt, nvar);
+    epane_kernel<<<512,512>>>(d_pdfset, d_coordo, d_coordt, d_bd, No, Nt, nvar);
   }
   else if(ktype == 2){
-    epane_kernel<<<512,512>>>(d_pdfset, d_coordo, d_coordt, d_bd, No, Nt, nvar);
+    gaussian_kernel<<<512,512>>>(d_pdfset, d_coordo, d_coordt, d_bd, No, Nt, nvar);
   }
   else {
     printf("Unknown kernel type index: %d", ktype);
