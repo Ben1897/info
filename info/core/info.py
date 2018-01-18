@@ -324,8 +324,8 @@ class info(object):
 
         # Compute R(Z;X,Y|W)
         self.rmmi    = np.min([self.ixz_w, self.iyz_w])                     # RMMIc
-        self.isource = self.ixy_w / np.min([self.hxw, self.hyw])            # Isc
-        # self.isource = self.ixy_w / np.min([self.hx_w, self.hy_w])        # Isc
+        # self.isource = self.ixy_w / np.min([self.hxw, self.hyw])            # Isc
+        self.isource = self.ixy_w / np.min([self.hx_w, self.hy_w])        # Isc
         self.rmin    = -self.ii if self.ii < 0 else 0                       # Rminc
         self.r       = self.rmin + self.isource*(self.rmmi-self.rmin)       # Rc
 
