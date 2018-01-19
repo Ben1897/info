@@ -21,7 +21,7 @@ class Logistic(object):
     allowedNoiseTypes = ['additive', 'multiplicative']
 
     def __init__(self, n, adjM, lagM, e, ez, a=4., noiseType='additive',
-                 noiseDist=None, noisePara=None):
+                 noiseDist=None, noisePara=None, snrOn=False):
         """The initial function.
 
         n:         the number of variables [int]
@@ -36,6 +36,7 @@ class Logistic(object):
         noisePara: the parameters of the noise term [list]
                    1     - variance coefficient [double]
                    2 ... - other parameters [any]
+        snrOn:     whether compute the signal-to-noise ratio [bool]
 
         """
         self.n         = n
@@ -44,6 +45,7 @@ class Logistic(object):
         self.e         = e
         self.ez        = ez
         self.a         = a
+        self.snrOn     = snrOn
         self.checkMatrix()
 
         # if noiseOn is None:
@@ -99,22 +101,48 @@ class Logistic(object):
         """
         noiseGenerator = self.noise.generator
 
-        def getFunctionForVar(w, i):
+        def getSignalFunction(w, i):
+            e, ez, a = self.e, self.ez, self.a
+            k = np.nonzero(w)[0].size
+            if k != 0:
+                return lambda x, i: (1-e)*logisticEqn(x[i],a) + (1-ez)*e*sum([w[j]*logisticEqn(x[j],a) for j in range(self.n)]) / k
+            else:
+                return lambda x, i: (1-e)*logisticEqn(x[i],a)
+
+        def getNoiseFunction(w, i):
             e, ez, a = self.e, self.ez, self.a
             k = np.nonzero(w)[0].size
             if k != 0:
                 if self.noiseType == 'additive':
-                    return lambda x, i: (1-e)*logisticEqn(x[i],a) + (1-ez)*e*sum([w[j]*logisticEqn(x[j],a) for j in range(self.n)]) / k + e*ez*noiseGenerator()
+                    return lambda x, i: e*ez*noiseGenerator()
                 elif self.noiseType == 'multiplicative':
-                    return lambda x, i: (1-e)*logisticEqn(x[i],a) + (1-ez)*e*sum([w[j]*logisticEqn(x[j],a) for j in range(self.n)]) / k + e*ez*x[i]*noiseGenerator()
+                    return lambda x, i: e*ez*x[i]*noiseGenerator()
             else:
                 if self.noiseType == 'additive':
-                    return lambda x, i: (1-e)*logisticEqn(x[i],a) + e*ez*noiseGenerator()
+                    return lambda x, i: e*ez*noiseGenerator()
                 elif self.noiseType == 'multiplicative':
-                    return lambda x, i: (1-e)*logisticEqn(x[i],a) + e*ez*x*noiseGenerator()
+                    return lambda x, i: e*ez*x*noiseGenerator()
 
         # Create a list of functions
-        self.funcs = list(map(getFunctionForVar, self.adjM, range(self.n)))
+        self.signalFuncs = list(map(getSignalFunction, self.adjM, range(self.n)))
+        self.noiseFuncs  = list(map(getNoiseFunction, self.adjM, range(self.n)))
+
+        # def getFunctionForVar(w, i):
+        #     e, ez, a = self.e, self.ez, self.a
+        #     k = np.nonzero(w)[0].size
+        #     if k != 0:
+        #         if self.noiseType == 'additive':
+        #             return lambda x, i: (1-e)*logisticEqn(x[i],a) + (1-ez)*e*sum([w[j]*logisticEqn(x[j],a) for j in range(self.n)]) / k + e*ez*noiseGenerator()
+        #         elif self.noiseType == 'multiplicative':
+        #             return lambda x, i: (1-e)*logisticEqn(x[i],a) + (1-ez)*e*sum([w[j]*logisticEqn(x[j],a) for j in range(self.n)]) / k + e*ez*x[i]*noiseGenerator()
+        #     else:
+        #         if self.noiseType == 'additive':
+        #             return lambda x, i: (1-e)*logisticEqn(x[i],a) + e*ez*noiseGenerator()
+        #         elif self.noiseType == 'multiplicative':
+        #             return lambda x, i: (1-e)*logisticEqn(x[i],a) + e*ez*x*noiseGenerator()
+
+        # # Create a list of functions
+        # self.funcs = list(map(getFunctionForVar, self.adjM, range(self.n)))
 
     def simulate(self, nstep):
         """
@@ -123,9 +151,12 @@ class Logistic(object):
         Output: a numpy array with shape (n, nstep)
 
         """
+        snrOn  = self.snrOn
         maxLag = self.lagM.max()
         ntrash = max(1000, self.lagM.max())
         simul  = np.zeros([self.n, nstep+ntrash])
+        signal = np.zeros([self.n, nstep+ntrash])
+        noise  = np.zeros([self.n, nstep+ntrash])
         noiseGenerator = self.noise.generator
 
         # Generate the initial values for the first ntrash terms using the noise
@@ -135,17 +166,22 @@ class Logistic(object):
         for i in range(nstep):
             index = i+ntrash
             prex = simul[:, index-maxLag:index]
+            # Get the required x values at the ith step for the computation at the i+1th step
             x = self.getRequiredX(prex)
-            # print self.funcs
-            # print self.funcs[0](x[0])
-            # print self.funcs[1](x[1])
-            simul[:, index] = map(lambda j: self.funcs[j](x[j], j), range(self.n))
-            # x1 = self.funcs[0](x[0])
-            # x2 = self.funcs[1](x[1])
-            # simul[:, index] = np.array([x1, x2])
+            # Compute the signal values
+            signal[:, index] = map(lambda j: self.signalFuncs[j](x[j], j), range(self.n))
+            # Compute the noise values
+            noise[:, index] = map(lambda j: self.noiseFuncs[j](x[j], j), range(self.n))
+            # Get the simulated values
+            # simul[:, index] = map(lambda j: self.funcs[j](x[j], j), range(self.n))
+            simul[:, index] = signal[:, index] + noise[:, index]
 
         # Return the last nstep values
-        return simul[:, ntrash:]
+        if snrOn:
+            snr = np.var(signal[:, ntrash:]) / np.var(noise[:, ntrash:])
+            return simul[:, ntrash:], signal[:, ntrash:], noise[:, ntrash:], snr
+        else:
+            return simul[:, ntrash:]
 
     def getRequiredX(self, prex):
         """
@@ -157,7 +193,6 @@ class Logistic(object):
         x = np.zeros([self.n, self.n])
         for i in range(self.n):
             adj = -self.lagM[i]
-            # x[i, :] = map(lambda j: prex[i, j] if j != 0 else 0., adj)
             x[i, :] = map(lambda j: prex[j, adj[j]] if adj[j] != 0 else 0., range(adj.size))
         return x
 
@@ -172,17 +207,24 @@ if __name__ == '__main__':
     # Parameters
     n    = 3
     lag  = 2
+    e, ez, a = 1., .5, 4.
     adjM = np.array([[0, 1, 0], [1, 0, 1], [1, 0, 0]])
     lagM = np.array([[0, lag, 0], [lag, 0, lag], [lag, 0, 0]])
+    snrOn = True
     # noise parameters
-    noiseType = 'exclusive'
+    noiseType = 'additive'
     noiseDist = 'uniform'
     noisePara = [1, 0, 1]
     nstep = 10
     # Initialize the logistic equations
-    logistic = Logistic(n, adjM, lagM, noiseType, noiseDist, noisePara)
+    logistic = Logistic(n, adjM, lagM, e=e, ez=ez, a=a, snrOn=snrOn,
+                        noiseType=noiseType, noiseDist=noiseDist, noisePara=noisePara)
     # Simulate
-    results = logistic.simulate(nstep)
+    if not snrOn:
+        results = logistic.simulate(nstep)
+    else:
+        results, _, _, snr = logistic.simulate(nstep)
+        print snr
     # Plot
     import matplotlib.pyplot as plt
     plt.plot(range(nstep), results[0, :])
