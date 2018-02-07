@@ -38,7 +38,7 @@ from ..utils.pdf_computer import pdf_computer
 class info(object):
 
     def __init__(self, ndim, data, approach='kde_c', bandwidth='silverman', kernel='gaussian',
-                 base=2, conditioned=False, specific=False, averaged=True):
+                 base=2, conditioned=False, specific=False, averaged=True, onlycmi=False):
         '''
         Input:
         ndim        -- the number of dimension to be computed [int]
@@ -73,26 +73,27 @@ class info(object):
         # Initiate the PDF computer
         self.computer = pdf_computer(approach=approach, bandwidth=bandwidth, kernel=kernel)
 
-        # 1D
-        if self.ndim == 1 and not conditioned:
-            self.__computeInfo1D()
-        elif self.ndim == 1 and conditioned:
-            self.__computeInfo1D_conditioned()
+        if not onlycmi:
+            # 1D
+            if self.ndim == 1 and not conditioned:
+                self.__computeInfo1D()
+            elif self.ndim == 1 and conditioned:
+                self.__computeInfo1D_conditioned()
 
-        # 2D
-        if self.ndim == 2 and not conditioned:
-            self.__computeInfo2D()
-        elif self.ndim == 2 and conditioned:
-            self.__computeInfo2D_conditioned()
+            # 2D
+            if self.ndim == 2 and not conditioned:
+                self.__computeInfo2D()
+            elif self.ndim == 2 and conditioned:
+                self.__computeInfo2D_conditioned()
 
-        # 3D
-        if self.ndim == 3 and not conditioned:
-            self.__computeInfo3D()
-        elif self.ndim == 3 and conditioned:
-            self.__computeInfo3D_conditioned()
+            # 3D
+            if self.ndim == 3 and not conditioned:
+                self.__computeInfo3D()
+            elif self.ndim == 3 and conditioned:
+                self.__computeInfo3D_conditioned()
 
-        # Assemble all the information values into a Pandas series format
-        self.__assemble()
+            # Assemble all the information values into a Pandas series format
+            self.__assemble()
 
     def __computeInfo1D(self):
         '''
@@ -333,6 +334,45 @@ class info(object):
         self.s = self.r + self.ii                                           # Sc
         self.uxz = self.ixz_w - self.r                                      # U(X;Z|W)
         self.uyz = self.iyz_w - self.r                                      # U(Y;Z|W)
+
+    def computeInfo2D_multiple_conditioned(self, xlastind, ylastind):
+        '''
+        Compute H(Xset|W), H(Yset|W), H(Xset,Yset|W), I(Xset,Yset|W)
+        used for computing the accumulated information transfer (AIT)
+        '''
+        base       = self.base
+        data       = self.data
+        computer   = self.computer
+        averaged   = self.averaged
+        npts, ndim = data.shape
+
+        if xlastind > ylastind:
+            raise Exception("xlastind %d is larger than ylastind %d" % (xlastind, ylastind))
+        if xlastind > ndim-1:
+            raise Exception("xlastind %d is larger than the maximum dimension" % xlastind)
+        if ylastind > ndim-1:
+            raise Exception("ylastind %d is larger than the maximum dimension" % ylastind)
+
+        # Compute the pdfs
+        _, pdfs   = computer.computePDF(data)
+        # _, xpdfs  = computer.computePDF(data[:,range(0,xlastind)])
+        # _, ypdfs  = computer.computePDF(data[:,range(xlastind,ylastind)])
+        _, wpdfs  = computer.computePDF(data[:,range(ylastind,ndim)])
+        # _, xypdfs = computer.computePDF(data[:,range(0,ylastind)])
+        _, xwpdfs = computer.computePDF(data[:,range(0,xlastind)+range(ylastind,ndim)])
+        _, ywpdfs = computer.computePDF(data[:,range(xlastind,ndim)])
+
+        # Compute all the conditional mutual information
+        # Calculate the log of pdf
+        pdfs_log, wpdfs_log    = np.ma.log(pdfs), np.ma.log(wpdfs)
+        xwpdfs_log, ywpdfs_log = np.ma.log(xwpdfs), np.ma.log(ywpdfs)
+        pdfs_log = (pdfs_log.filled(0) + wpdfs_log.filled(0) - xwpdfs_log.filled(0) - ywpdfs_log.filled(0)) / np.log(base)
+
+        # Normalize the joint PDF
+        pdfs_norm = pdfs / pdfs.sum()
+
+        # The conditional probability
+        return np.sum(pdfs_norm*pdfs_log)
 
     def __assemble(self):
         '''

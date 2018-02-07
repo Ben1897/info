@@ -413,7 +413,7 @@ class causal_network(object):
             linktype = self.check_links(source, target, verbosity=verbosity)
         if linktype not in ['causalpath', 'directed']:
             if verbosity == 1:
-                print "The source %s and the target %s are not linked by a causal path" % (source1, target)
+                print "The source %s and the target %s are not linked by a causal path" % (source, target)
             return []
 
         # Get the node number
