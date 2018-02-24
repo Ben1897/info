@@ -11,11 +11,9 @@ class info()
   __computeInfo1D_conditioned()
   __computeInfo2D()
   __computeInfo2D_conditioned()
+  __comptueInfo2D_multivariate_conditioned()
   __computeInfo3D()
-  __computeInfo3D_specific()
-  __computeInfo3D_specific_wrong()
   __computeInfo3D_conditioned()
-  __computeInfoMD2()
   __assemble()
 
 equal()
@@ -37,11 +35,11 @@ from ..utils.pdf_computer import pdf_computer
 
 class info(object):
 
-    def __init__(self, ndim, data, approach='kde_c', bandwidth='silverman', kernel='gaussian',
-                 base=2, conditioned=False, specific=False, averaged=True, onlycmi=False):
+    def __init__(self, case, data, approach='kde_c', bandwidth='silverman', kernel='gaussian',
+                 base=2, conditioned=False, specific=False, averaged=True, xyindex=None):
         '''
         Input:
-        ndim        -- the number of dimension to be computed [int]
+        case        -- the number of dimension to be computed [int]
         data        -- the data [numpy array with shape (npoints, ndim)]
         approach    -- the code for computing PDF by using KDE
         kernel      -- the kernel type [string]
@@ -50,6 +48,10 @@ class info(object):
         conditioned -- whether including conditions [bool]
         specific    -- whether calculating the specific PID [bool]
         averaged    -- whether computing the average value of each info bit or using the traditional discrete formula [averaged]
+        xyindex     -- a list of index indicating the position of the involved variable set, used for computeInfo*D_multivariate*
+                       1D: [xlastind], 2D: [xlastind, ylastind], 3D: [xlastind,ylastind,zlastind]
+                       note that xlastind < ylastind < zlastind <= len(pdfs.shape)
+                       if None, used for computeInfo*D*
         '''
         self.base        = base
         self.conditioned = conditioned
@@ -59,41 +61,111 @@ class info(object):
         # Check the dimension of the data
         if len(data.shape) > 2:
             raise Exception('The dimension of the data matrix is not (npts, ndim)!')
-        if ndim == 1 and len(data.shape) == 1:
+        if case == 1 and len(data.shape) == 1:
             data = data[:,np.newaxis]
         npts, ndimdata = data.shape
-        if ndim != ndimdata and not conditioned:
-            raise Exception('The dimension of the variables is %d, not %d!' % (ndimdata, ndim))
-        elif ndim >= ndimdata and conditioned:
-            raise Exception('The dimension of the variables should be larger than %d, not %d!' % (ndimdata, ndim))
+        if case != ndimdata and not conditioned:
+            raise Exception('The dimension of the variables is %d, not %d!' % (ndimdata, case))
+        elif case >= ndimdata and conditioned:
+            raise Exception('The dimension of the variables should be larger than %d, not %d!' % (ndimdata, case))
         self.npts = npts
-        self.ndim = ndim
+        self.case = case
         self.data = data
 
         # Initiate the PDF computer
         self.computer = pdf_computer(approach=approach, bandwidth=bandwidth, kernel=kernel)
 
-        if not onlycmi:
-            # 1D
-            if self.ndim == 1 and not conditioned:
-                self.__computeInfo1D()
-            elif self.ndim == 1 and conditioned:
-                self.__computeInfo1D_conditioned()
+        # Compute the joint PDF
+        _, pdfs   = self.computer.computePDF(data)
+        self.pdfs = pdfs
 
-            # 2D
-            if self.ndim == 2 and not conditioned:
-                self.__computeInfo2D()
-            elif self.ndim == 2 and conditioned:
-                self.__computeInfo2D_conditioned()
+        ndim = data.shape[1]
+        # 1D
+        if self.case == 1:
+            if xyindex is None:
+                if not conditioned:
+                    self.__computeInfo1D()
+                elif conditioned:
+                    self.__computeInfo1D_conditioned()
+            elif isinstance(xyindex,list):
+                if len(xyindex) == 1 and xyindex[0] <= ndim:
+                    self.xlastind = xyindex[0]
+                    if not conditioned:
+                        # (TODO)
+                        pass
+                    elif conditioned:
+                        # (TODO)
+                        pass
+                else:
+                    raise Exception('xyindex is not correct for 1D case: ' + str(xyindex))
+            else:
+                raise Exception('Unknown type of xyindex %s' % str(type(xyindex)))
 
-            # 3D
-            if self.ndim == 3 and not conditioned:
-                self.__computeInfo3D()
-            elif self.ndim == 3 and conditioned:
-                self.__computeInfo3D_conditioned()
 
-            # Assemble all the information values into a Pandas series format
-            self.__assemble()
+        # 2D
+        if self.case == 2:
+            if xyindex is None:
+                if not conditioned:
+                    self.__computeInfo2D()
+                elif conditioned:
+                    self.__computeInfo2D_conditioned()
+            elif isinstance(xyindex,list):
+                if len(xyindex) == 2 and xyindex[0] < xyindex[1] and xyindex[1] <= ndim:
+                    self.xlastind, self.ylastind = xyindex[0], xyindex[1]
+                    if not conditioned:
+                        # (TODO)
+                        pass
+                    elif conditioned:
+                        self.__computeInfo2D_multivariate_conditioned()
+                else:
+                    raise Exception('xyindex is not correct for 2D case: ' + str(xyindex))
+            else:
+                raise Exception('Unknown type of xyindex %s' % str(type(xyindex)))
+
+       # 3D
+        if self.case == 3:
+            if xyindex is None:
+                if not conditioned:
+                    self.__computeInfo3D()
+                elif conditioned:
+                    self.__computeInfo3D_conditioned()
+            elif isinstance(xyindex,list):
+                if len(xyindex) == 3 and xyindex[0] < xyindex[1] and xyindex[1] < xyindex[2] and xyindex[2] <= ndim:
+                    self.xlastind, self.ylastind, self.zlastind = xyindex[0], xyindex[1], xyindex[2]
+                    if not conditioned:
+                        # (TODO)
+                        pass
+                    elif conditioned:
+                        # (TODO)
+                        pass
+                        # self.__computeInfo3D_multivariate_conditioned()
+                else:
+                    raise Exception('xyindex is not correct for 3D case: ' + str(xyindex))
+            else:
+                raise Exception('Unknown type of xyindex %s' % str(type(xyindex)))
+        # # 1D
+        # if self.case == 1 and not conditioned:
+        #     self.__computeInfo1D()
+        # elif self.ndim == 1 and conditioned:
+        #     self.__computeInfo1D_conditioned()
+
+        # # 2D
+        # if self.ndim == 2 and not conditioned:
+        #     self.__computeInfo2D()
+        # elif self.ndim == 2 and conditioned:
+        #     self.__computeInfo2D_conditioned()
+
+        # # 3D
+        # if self.ndim == 3 and not conditioned:
+        #     self.__computeInfo3D()
+        # elif self.ndim == 3 and conditioned:
+        #     self.__computeInfo3D_conditioned()
+
+        # Assemble all the information values into a Pandas series format
+        self.__assemble()
+
+        # Delete the PDF to reduce the memory requirement
+        del self.pdfs
 
     def __computeInfo1D(self):
         '''
@@ -105,9 +177,7 @@ class info(object):
         data     = self.data
         computer = self.computer
         averaged = self.averaged
-
-        # Compute the pdfs
-        _, pdfs = computer(data)
+        pdfs     = self.pdfs
 
         # Compute information metrics
         self.hx = computeEntropy(pdfs, base=base, averaged=averaged)
@@ -120,9 +190,9 @@ class info(object):
         data     = self.data
         computer = self.computer
         averaged = self.averaged
+        pdfs     = self.pdfs
 
         # Compute the pdfs
-        _, pdfs  = computer.computePDF(data)
         _, xpdfs = computer.computePDF(data[:,[0]])
         _, wpdfs = computer.computePDF(data[:,1:])
 
@@ -143,9 +213,9 @@ class info(object):
         data     = self.data
         computer = self.computer
         averaged = self.averaged
+        pdfs     = self.pdfs
 
         # Compute the pdfs
-        _, pdfs  = computer.computePDF(data)
         _, xpdfs = computer.computePDF(data[:,[0]])
         _, ypdfs = computer.computePDF(data[:,[1]])
 
@@ -167,9 +237,9 @@ class info(object):
         computer   = self.computer
         averaged   = self.averaged
         npts, ndim = data.shape
+        pdfs       = self.pdfs
 
         # Compute the pdfs
-        _, pdfs   = computer.computePDF(data)
         _, xpdfs  = computer.computePDF(data[:,[0]])
         _, ypdfs  = computer.computePDF(data[:,[1]])
         _, wpdfs  = computer.computePDF(data[:,2:])
@@ -178,17 +248,56 @@ class info(object):
         _, ywpdfs = computer.computePDF(data[:,[1]+range(2,ndim)])
 
         # Compute all the entropies
-        self.hw    = computeEntropy(wpdfs, base=base, averaged=averaged)    # H(W)
-        self.hx    = computeEntropy(xpdfs, base=base, averaged=averaged)    # H(X)
-        self.hy    = computeEntropy(ypdfs, base=base, averaged=averaged)    # H(Y)
-        self.hxy   = computeEntropy(xypdfs, base=base, averaged=averaged)   # H(X,Y)
-        self.hxw   = computeEntropy(xwpdfs, base=base, averaged=averaged)   # H(X,W)
-        self.hyw   = computeEntropy(ywpdfs, base=base, averaged=averaged)   # H(Y,W)
-        self.hxyw  = computeEntropy(pdfs, base=base, averaged=averaged)     # H(X,Y,W)
-        self.hx_w  = self.hxw - self.hw                                     # H(X|W)
-        self.hy_w  = self.hyw - self.hw                                     # H(Y|W)
-        self.hx_y  = self.hxy - self.hy                                     # H(X|Y)
-        self.hy_x  = self.hxy - self.hx                                     # H(Y|X)
+        self.hw    = computeEntropy(wpdfs, base=base, averaged=averaged)    # h(w)
+        self.hx    = computeEntropy(xpdfs, base=base, averaged=averaged)    # h(x)
+        self.hy    = computeEntropy(ypdfs, base=base, averaged=averaged)    # h(y)
+        self.hxy   = computeEntropy(xypdfs, base=base, averaged=averaged)   # h(x,y)
+        self.hxw   = computeEntropy(xwpdfs, base=base, averaged=averaged)   # h(x,w)
+        self.hyw   = computeEntropy(ywpdfs, base=base, averaged=averaged)   # h(y,w)
+        self.hxyw  = computeEntropy(pdfs, base=base, averaged=averaged)     # h(x,y,w)
+        self.hx_w  = self.hxw - self.hw                                     # h(x|w)
+        self.hy_w  = self.hyw - self.hw                                     # h(y|w)
+        self.hx_y  = self.hxy - self.hy                                     # h(x|y)
+        self.hy_x  = self.hxy - self.hx                                     # h(y|x)
+
+        # Compute all the conditional mutual information
+        self.ixy   = self.hx + self.hy - self.hxy                           # I(X;Y)
+        self.ixy_w = self.hxw + self.hyw - self.hw - self.hxyw              # I(X;Y|W)
+
+    def __computeInfo2D_multivariate_conditioned(self):
+        '''
+        Compute H(Xset|W), H(Yset|W), H(Xset,Yset|W), I(Xset,Yset|W)
+        used for computing the accumulated information transfer (AIT)
+        '''
+        base       = self.base
+        data       = self.data
+        computer   = self.computer
+        averaged   = self.averaged
+        npts, ndim = data.shape
+        pdfs     = self.pdfs
+
+        xlastind, ylastind = self.xlastind, self.ylastind
+
+        # Compute the pdfs
+        _, xpdfs  = computer.computePDF(data[:,range(0,xlastind)])
+        _, ypdfs  = computer.computePDF(data[:,range(xlastind,ylastind)])
+        _, wpdfs  = computer.computePDF(data[:,range(ylastind,ndim)])
+        _, xypdfs = computer.computePDF(data[:,range(0,ylastind)])
+        _, xwpdfs = computer.computePDF(data[:,range(0,xlastind)+range(ylastind,ndim)])
+        _, ywpdfs = computer.computePDF(data[:,range(xlastind,ndim)])
+
+        # Compute all the entropies
+        self.hw    = computeEntropy(wpdfs, base=base, averaged=averaged)    # h(w)
+        self.hx    = computeEntropy(xpdfs, base=base, averaged=averaged)    # h(x)
+        self.hy    = computeEntropy(ypdfs, base=base, averaged=averaged)    # h(y)
+        self.hxy   = computeEntropy(xypdfs, base=base, averaged=averaged)   # h(x,y)
+        self.hxw   = computeEntropy(xwpdfs, base=base, averaged=averaged)   # h(x,w)
+        self.hyw   = computeEntropy(ywpdfs, base=base, averaged=averaged)   # h(y,w)
+        self.hxyw  = computeEntropy(pdfs, base=base, averaged=averaged)     # h(x,y,w)
+        self.hx_w  = self.hxw - self.hw                                     # h(x|w)
+        self.hy_w  = self.hyw - self.hw                                     # h(y|w)
+        self.hx_y  = self.hxy - self.hy                                     # h(x|y)
+        self.hy_x  = self.hxy - self.hx                                     # h(y|x)
 
         # Compute all the conditional mutual information
         self.ixy   = self.hx + self.hy - self.hxy                           # I(X;Y)
@@ -208,9 +317,9 @@ class info(object):
         computer   = self.computer
         averaged   = self.averaged
         npts, ndim = data.shape
+        pdfs       = self.pdfs
 
         # Compute the pdfs
-        _, pdfs   = computer.computePDF(data)
         _, xpdfs  = computer.computePDF(data[:,[0]])
         _, ypdfs  = computer.computePDF(data[:,[1]])
         _, zpdfs  = computer.computePDF(data[:,[2]])
@@ -270,9 +379,9 @@ class info(object):
         computer   = self.computer
         averaged   = self.averaged
         npts, ndim = data.shape
+        pdfs       = self.pdfs
 
         # Compute the pdfs
-        _, pdfs    = computer.computePDF(data)
         _, xpdfs   = computer.computePDF(data[:,[0]])
         _, ypdfs   = computer.computePDF(data[:,[1]])
         _, zpdfs   = computer.computePDF(data[:,[2]])
@@ -335,72 +444,72 @@ class info(object):
         self.uxz = self.ixz_w - self.r                                      # U(X;Z|W)
         self.uyz = self.iyz_w - self.r                                      # U(Y;Z|W)
 
-    def computeInfo2D_multiple_conditioned(self, xlastind, ylastind):
-        '''
-        Compute H(Xset|W), H(Yset|W), H(Xset,Yset|W), I(Xset,Yset|W)
-        used for computing the accumulated information transfer (AIT)
-        '''
-        base       = self.base
-        data       = self.data
-        computer   = self.computer
-        averaged   = self.averaged
-        npts, ndim = data.shape
+    # def computeInfo2D_multiple_conditioned(self, xlastind, ylastind):
+    #     '''
+    #     Compute H(Xset|W), H(Yset|W), H(Xset,Yset|W), I(Xset,Yset|W)
+    #     used for computing the accumulated information transfer (AIT)
+    #     '''
+    #     base       = self.base
+    #     data       = self.data
+    #     computer   = self.computer
+    #     averaged   = self.averaged
+    #     npts, ndim = data.shape
 
-        if xlastind > ylastind:
-            raise Exception("xlastind %d is larger than ylastind %d" % (xlastind, ylastind))
-        if xlastind > ndim-1:
-            raise Exception("xlastind %d is larger than the maximum dimension" % xlastind)
-        if ylastind > ndim-1:
-            raise Exception("ylastind %d is larger than the maximum dimension" % ylastind)
+    #     if xlastind > ylastind:
+    #         raise Exception("xlastind %d is larger than ylastind %d" % (xlastind, ylastind))
+    #     if xlastind > ndim-1:
+    #         raise Exception("xlastind %d is larger than the maximum dimension" % xlastind)
+    #     if ylastind > ndim-1:
+    #         raise Exception("ylastind %d is larger than the maximum dimension" % ylastind)
 
-        # Compute the pdfs
-        _, pdfs   = computer.computePDF(data)
-        # _, xpdfs  = computer.computePDF(data[:,range(0,xlastind)])
-        # _, ypdfs  = computer.computePDF(data[:,range(xlastind,ylastind)])
-        _, wpdfs  = computer.computePDF(data[:,range(ylastind,ndim)])
-        # _, xypdfs = computer.computePDF(data[:,range(0,ylastind)])
-        _, xwpdfs = computer.computePDF(data[:,range(0,xlastind)+range(ylastind,ndim)])
-        _, ywpdfs = computer.computePDF(data[:,range(xlastind,ndim)])
+    #     # Compute the pdfs
+    #     _, pdfs   = computer.computePDF(data)
+    #     # _, xpdfs  = computer.computePDF(data[:,range(0,xlastind)])
+    #     # _, ypdfs  = computer.computePDF(data[:,range(xlastind,ylastind)])
+    #     _, wpdfs  = computer.computePDF(data[:,range(ylastind,ndim)])
+    #     # _, xypdfs = computer.computePDF(data[:,range(0,ylastind)])
+    #     _, xwpdfs = computer.computePDF(data[:,range(0,xlastind)+range(ylastind,ndim)])
+    #     _, ywpdfs = computer.computePDF(data[:,range(xlastind,ndim)])
 
-        # Compute all the conditional mutual information
-        # Calculate the log of pdf
-        pdfs_log, wpdfs_log    = np.ma.log(pdfs), np.ma.log(wpdfs)
-        xwpdfs_log, ywpdfs_log = np.ma.log(xwpdfs), np.ma.log(ywpdfs)
-        pdfs_log = (pdfs_log.filled(0) + wpdfs_log.filled(0) - xwpdfs_log.filled(0) - ywpdfs_log.filled(0)) / np.log(base)
+    #     # Compute all the conditional mutual information
+    #     # Calculate the log of pdf
+    #     pdfs_log, wpdfs_log    = np.ma.log(pdfs), np.ma.log(wpdfs)
+    #     xwpdfs_log, ywpdfs_log = np.ma.log(xwpdfs), np.ma.log(ywpdfs)
+    #     pdfs_log = (pdfs_log.filled(0) + wpdfs_log.filled(0) - xwpdfs_log.filled(0) - ywpdfs_log.filled(0)) / np.log(base)
 
-        # Normalize the joint PDF
-        pdfs_norm = pdfs / pdfs.sum()
+    #     # Normalize the joint PDF
+    #     pdfs_norm = pdfs / pdfs.sum()
 
-        # The conditional probability
-        return np.sum(pdfs_norm*pdfs_log)
+    #     # The conditional probability
+    #     return np.sum(pdfs_norm*pdfs_log)
 
     def __assemble(self):
         '''
         Assemble all the information values into a Pandas series format
         Output: NoneType
         '''
-        if self.ndim == 1 and not self.conditioned:
+        if self.case == 1 and not self.conditioned:
             self.allInfo = pd.Series(self.hx, index=['H(X)'], name='ordinary')
 
-        elif self.ndim == 1 and self.conditioned:
+        elif self.case == 1 and self.conditioned:
             self.allInfo = pd.Series([self.hx, self.hx_w], index=['H(X)', 'H(X|W)'], name='ordinary')
 
-        elif self.ndim == 2 and not self.conditioned:
+        elif self.case == 2 and not self.conditioned:
             self.allInfo = pd.Series([self.hx, self.hy, self.hx_y, self.hy_x, self.ixy],
                                      index=['H(X)', 'H(Y)', 'H(X|Y)', 'H(Y|X)', 'I(X;Y)'],
                                      name='ordinary')
 
-        elif self.ndim == 2 and self.conditioned:
+        elif self.case == 2 and self.conditioned:
             self.allInfo = pd.Series([self.hx, self.hx_y, self.hxyw-self.hyw, self.ixy_w],
                                      index=['H(X)', 'H(X|Y)', 'H(X|Y,W)', 'I(X;Y|W)'],
                                      name='ordinary')
 
-        elif self.ndim == 3 and not self.conditioned:
+        elif self.case == 3 and not self.conditioned:
             self.allInfo = pd.Series([self.ixz, self.iyz, self.itot, self.ii, self.r, self.s, self.uxz, self.uyz, self.rmin, self.isource, self.rmmi],
                                      index=['I(X;Z)', 'I(Y;Z)', 'I(X,Y;Z)', 'II', 'R(Z;Y,X)', 'S(Z;Y,X)', 'U(Z,X)', 'U(Z,Y)', 'Rmin', 'Isource', 'RMMI'],
                                      name='ordinary')
 
-        elif self.ndim == 3 and self.conditioned:
+        elif self.case == 3 and self.conditioned:
             self.allInfo = pd.Series([self.ixz_w, self.iyz_w, self.itot, self.ii, self.r, self.s, self.uxz, self.uyz, self.rmin, self.isource, self.rmmi],
                                      index=['I(X;Z|W)', 'I(Y;Z|W)', 'I(X,Y;Z|W)', 'II', 'R(Z;Y,X|W)', 'S(Z;Y,X|W)', 'U(Z,X|W)', 'U(Z,Y|W)', 'Rmin', 'Isource', 'RMMI'],
                                      name='ordinary')
@@ -439,7 +548,7 @@ class info(object):
 
         # 1D - unconditioned
         # unconditioned: Hmax(X) = log(Nx)/log(base)
-        if self.ndim == 1 and not self.conditioned:
+        if self.case == 1 and not self.conditioned:
             nx           = npts
             scalingbase  = np.log(nx) / np.log(base)
             self.hx_norm = self.hx / scalingbase
@@ -449,7 +558,7 @@ class info(object):
         # 1D - conditioned
         # conditioned (percentage): H(X)
         # conditioned (magnitude):  Hmax(X,W) = log(Nx*Nw)/log(base)
-        if self.ndim == 1 and self.conditioned:
+        if self.case == 1 and self.conditioned:
             nx, nw          = npts, npts
             # percentage
             scalingbase_p   = self.hx
@@ -465,7 +574,7 @@ class info(object):
         # X: source, Y: target
         # unconditioned (percentage): H(X,Y)
         # unconditioned (magnitude):  H(Y)
-        if self.ndim == 2 and not self.conditioned:
+        if self.case == 2 and not self.conditioned:
             # percentage
             scalingbase_p   = self.hx_y + self.hy   # H(X,Y)
             self.hx_y_normp = self.hx_y / scalingbase_p
@@ -484,7 +593,7 @@ class info(object):
         # X: source, Y: target, W: condition
         # conditioned (percentage): H(X,Y|W)
         # conditioned (magnitude):  H(Y)
-        if self.ndim == 2 and self.conditioned:
+        if self.case == 2 and self.conditioned:
             # percentage
             scalingbase_p    = self.hxyw - self.hw   # H(X,Y|W)
             self.hx_yw_normp = (self.hxyw - self.hyw) / scalingbase_p
@@ -503,7 +612,7 @@ class info(object):
         # X, Y: sourceS, Z: target
         # unconditioned (percentage): H(X,Y,Z)
         # unconditioned (magnitude):  H(Z)
-        if self.ndim == 3 and not self.conditioned:
+        if self.case == 3 and not self.conditioned:
             # percentage
             scalingbase_p   = self.hxyz               # H(X,Y,Z)
             self.ixz_normp  = self.ixz / scalingbase_p
@@ -544,7 +653,7 @@ class info(object):
         # X, Y: sourceS, Z: target, W: condition
         # conditioned (percentage):   H(X,Y,Z|W)
         # conditioned (magnitude):    H(Z)
-        if self.ndim == 3 and self.conditioned:
+        if self.case == 3 and self.conditioned:
             # percentage
             scalingbase_p    = self.hxyzw - self.hw    # H(X,Y,Z|W)
             self.ixz_w_normp = self.ixz_w / scalingbase_p
