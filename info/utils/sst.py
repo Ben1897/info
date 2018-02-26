@@ -37,8 +37,14 @@ def shuffle(data, sstmethod='traditional'):
 
     # Get the indices of all the permutations
     if sstmethod == 'traditional':
-        permutation = lambda i: np.random.permutation(ind)
-        ind_p = np.array(map(permutation, range(ndim))).T
+        # permutation = lambda i: np.random.permutation(ind)
+        # ind_p = np.array(map(permutation, range(ndim))).T
+        for i in range(ndim):
+            data_shuffled[:, i] = np.random.permutation(data[:, i])
+            # if i == 0:
+            #     data_shuffled[:, i] = np.random.permutation(data[:, i])
+            # else:
+            #     data_shuffled[:, i] = data[:, i]
     elif sstmethod == 'segments':
         raise Exception('Not ready for the seasonal surrogates!')
         # ind_set = np.random.randint(low=0, high=nsamples, size=n)
@@ -48,13 +54,10 @@ def shuffle(data, sstmethod='traditional'):
     else:
         raise Exception('Unknown method %s' % sstmethod)
 
-    # Assign the permtated values to data_shuffled
-    data_shuffled = data[ind_p]
-
     return data_shuffled
 
 
-def independence(node1, node2, data, ntest=100, sstmethod='traditional', kernel='gaussian', approach='kde_cuda_general', base=2., returnTrue=False):
+def independence(node1, node2, data, ntest=100, sstmethod='traditional', alpha=0.05, kernel='gaussian', approach='kde_cuda_general', base=2., returnTrue=False):
     """
     Conduct the independence test based on the mutual information of two variables from data.
 
@@ -64,6 +67,7 @@ def independence(node1, node2, data, ntest=100, sstmethod='traditional', kernel=
     data       -- the data points [numpy array with shape (npoints, ndim)]
     ntest      -- the number of the shuffles [int]
     sstmethod  -- the statistical significance test method [str]
+    alpha      -- the significance level [float]
     kernel     -- the kernel used for KDE [str]
     approach   -- the package (cuda or c) used for KDE [str]
     base       -- the log base [float]
@@ -88,23 +92,23 @@ def independence(node1, node2, data, ntest=100, sstmethod='traditional', kernel=
         mi_shuffled_all.append(mi_shuffled)
 
     # Calculate 95% and 5% percentiles
-    upper = np.percentile(mi_shuffled_all, 95)
-    lower = np.percentile(mi_shuffled_all, 5)
+    upper = np.percentile(mi_shuffled_all, int(100*(1-alpha)))
+    lower = np.percentile(mi_shuffled_all, int(100*alpha))
 
     # Return results:
     if mi > upper:
         if returnTrue:
-            return True, mi, upper, lower
-        else:
-            return True
-    else:
-        if returnTrue:  # Return true value of mutual information
             return False, mi, upper, lower
         else:
             return False
+    else:
+        if returnTrue:  # Return true value of mutual information
+            return True, mi, upper, lower
+        else:
+            return True
 
 
-def conditionalIndependence(node1, node2, conditionset, data, ntest=100, sstmethod='traditional', kernel='gaussian', approach='kde_cuda_general', base=2., returnTrue=False):
+def conditionalIndependence(node1, node2, conditionset, data, ntest=100, sstmethod='traditional', alpha=0.05, kernel='gaussian', approach='kde_cuda_general', base=2., returnTrue=False):
     """
     Conduct the conditional independence test based on the conditional mutual information of two variables from data.
 
@@ -115,6 +119,7 @@ def conditionalIndependence(node1, node2, conditionset, data, ntest=100, sstmeth
     data         -- the data points [numpy array with shape (npoints, ndim)]
     ntest        -- the number of the shuffles [int]
     sstmethod  -- the statistical significance test method [str]
+    alpha      -- the significance level [float]
     kernel     -- the kernel used for KDE [str]
     approach   -- the package (cuda or c) used for KDE [str]
     base       -- the log base [float]
@@ -126,30 +131,31 @@ def conditionalIndependence(node1, node2, conditionset, data, ntest=100, sstmeth
 
     # Calculate the conditional mutual information of them
     cmi = info(case=2, data=data12cond, approach=approach, kernel=kernel,
-              base=base, conditioned=True).ixy
+              base=base, conditioned=True).ixy_w
 
     # Calculate the conditional mutual information of each pair of (xdata_shuffled and ydata)
-    cmi_shuffled_all = []
+    cmi_shuffled_all = np.zeros(ntest)
     for i in range(ntest):
         # Get shuffled data
         data12cond_shuffled = shuffle(data12cond, sstmethod=sstmethod)
         # Calculate the corresponding cmi
         cmi_shuffled = info(case=2, data=data12cond_shuffled, approach=approach,
-                           kernel=kernel, base=base, conditioned=True).ixy
-        cmi_shuffled_all.append(cmi_shuffled)
+                            kernel=kernel, base=base, conditioned=True).ixy_w
+        cmi_shuffled_all[i] = cmi_shuffled
 
     # Calculate 95% and 5% percentiles
-    upper = np.percentile(cmi_shuffled_all, 95)
-    lower = np.percentile(cmi_shuffled_all, 5)
+    upper = np.percentile(cmi_shuffled_all, int(100*(1-alpha)))
+    lower = np.percentile(cmi_shuffled_all, int(100*alpha))
 
+    # print cmi_shuffled_all.max(), cmi_shuffled_all.min()
     # Return results:
     if cmi > upper:
         if returnTrue:
-            return True, cmi, upper, lower
-        else:
-            return True
-    else:
-        if returnTrue:  # Return true value of mutual information
             return False, cmi, upper, lower
         else:
             return False
+    else:
+        if returnTrue:  # Return true value of mutual information
+            return True, cmi, upper, lower
+        else:
+            return True

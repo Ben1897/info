@@ -184,7 +184,8 @@ def reorganize_data(data, w):
     npts1, ndim = data.shape
 
     varset = [varlag[0] for varlag in w]
-    lagset = [-varlag[1] for varlag in w]  # Reverse the sign because negative (-) means earlier and positive (+) means later in the original w
+    # lagset = [-varlag[1] for varlag in w]  # Reverse the sign because negative (-) means earlier and positive (+) means later in the original w
+    lagset = [varlag[1] for varlag in w]
 
     # Move the lagset so that all are non-negative
     minlag = np.min(lagset)
