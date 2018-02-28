@@ -184,7 +184,11 @@ def reorganize_data(data, w):
     npts1, ndim = data.shape
 
     varset = [varlag[0] for varlag in w]
-    lagset = [-varlag[1] for varlag in w]  # Notice that the original lags are all negative values
+    lagset = [varlag[1] for varlag in w]  # Notice that the original lags are all negative values
+
+    # Move the lagset so that all are non-negative
+    minlag = np.min(lagset)
+    lagset = [lag-minlag for lag in lagset]
 
     maxlag = np.max(lagset)
     npts2 = npts1 - maxlag
