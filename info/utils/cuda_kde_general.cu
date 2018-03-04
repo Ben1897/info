@@ -36,6 +36,131 @@ double get_time()
  * @param nvar   [number of variables]
  */
 
+// Quartic kernel
+__global__ void quartic_kernel(double *pdfset, double *coordo,
+                               double *coordt, double *bdinv, double bddet,
+                               int No, int Nt, int nvar)
+{
+    double pdf;                               // the pdf of the ith location
+    double kernel;                                 // the kernel information of the ith location in the kth variable
+    double xbdinv, xbdinvxT;                       // the mutplication of the dist, bdinv and the transpose of dist
+    double distk;                                  // the distance between two vectors in the kth variable
+    int i = blockIdx.x * blockDim.x + threadIdx.x; // the index of the ith location
+
+    while (i < Nt) {
+      pdf = 0.;
+      for (int j = 0; j < No; j++)
+      {
+        /* Compute the mutplication of the dist, coninv and the transpose of dist */
+        xbdinvxT = 0.;
+        for (int ki = 0; ki < nvar; ki++)
+        {
+          xbdinv = 0.;
+          for (int kj = 0; kj < nvar; kj++)
+          {
+            distk  = coordt[i*nvar+kj] - coordo[j*nvar+kj];
+            xbdinv = xbdinv + distk*bdinv[kj*nvar+ki];
+          }
+
+          distk  = coordt[i*nvar+ki] - coordo[j*nvar+ki];
+          xbdinvxT = xbdinvxT + distk*xbdinv;
+        }
+
+        /* Compute the kernel */
+        if(xbdinvxT > 1){
+          kernel = 0.0;
+        }else{
+          /* Compute the kernel */
+          kernel = 1./sqrt(bddet) * 4. / M_PI * pow((1. - xbdinvxT),2);
+        }
+
+        pdf = pdf + kernel;
+      }
+
+      pdfset[i] = pdf/(double)No;
+
+      // Roll the block to see whether (for 1D)
+      i += blockDim.x*gridDim.x;
+    }
+
+}
+
+/**
+ * [kernel GPU implementation of multivariate KDE method]
+ * @param pdfset [description]
+ * @param coordo [an array of the sample locations]
+ * @param coordt [an array of the location of pdf to be estimated]
+ * @param bdinv  [an array representing the inverse bandwidth matrix]
+ * @param bddet  [the determinant of the bandwidth matrix]
+ * @param unitvolumn [the volumn of the unit sphere in nvar-dimension]
+ * @param No     [number of the given samples]
+ * @param Nt     [number of pdf to be estimated]
+ * @param nvar   [number of variables]
+ */
+
+// Epanechnikov kernel
+__global__ void epanechnikov_kernel(double *pdfset, double *coordo,
+                                    double *coordt, double *bdinv, double bddet,
+                                    double unitvolumn,
+                                    int No, int Nt, int nvar)
+{
+    double pdf;                               // the pdf of the ith location
+    double kernel;                                 // the kernel information of the ith location in the kth variable
+    double xbdinv, xbdinvxT;                       // the mutplication of the dist, bdinv and the transpose of dist
+    double distk;                                  // the distance between two vectors in the kth variable
+    int i = blockIdx.x * blockDim.x + threadIdx.x; // the index of the ith location
+
+    while (i < Nt) {
+      pdf = 0.;
+      for (int j = 0; j < No; j++)
+      {
+        /* Compute the mutplication of the dist, coninv and the transpose of dist */
+        xbdinvxT = 0.;
+        for (int ki = 0; ki < nvar; ki++)
+        {
+          xbdinv = 0.;
+          for (int kj = 0; kj < nvar; kj++)
+          {
+            distk  = coordt[i*nvar+kj] - coordo[j*nvar+kj];
+            xbdinv = xbdinv + distk*bdinv[kj*nvar+ki];
+          }
+
+          distk  = coordt[i*nvar+ki] - coordo[j*nvar+ki];
+          xbdinvxT = xbdinvxT + distk*xbdinv;
+        }
+
+        /* Compute the kernel */
+        if(xbdinvxT > 1){
+          kernel = 0.0;
+        }else{
+          /* Compute the kernel */
+          kernel = 1./sqrt(bddet) * double(nvar+2.) / (2.*unitvolumn) * (1. - xbdinvxT);
+        }
+
+        pdf = pdf + kernel;
+      }
+
+      pdfset[i] = pdf/(double)No;
+
+      // Roll the block to see whether (for 1D)
+      i += blockDim.x*gridDim.x;
+    }
+
+}
+
+
+/**
+ * [kernel GPU implementation of multivariate KDE method]
+ * @param pdfset [description]
+ * @param coordo [an array of the sample locations]
+ * @param coordt [an array of the location of pdf to be estimated]
+ * @param bdinv  [an array representing the inverse bandwidth matrix]
+ * @param bddet  [the determinant of the bandwidth matrix]
+ * @param No     [number of the given samples]
+ * @param Nt     [number of pdf to be estimated]
+ * @param nvar   [number of variables]
+ */
+
 // Gaussian kernel
 __global__ void gaussian_kernel(double *pdfset, double *coordo,
                                 double *coordt, double *bdinv, double bddet,
@@ -85,6 +210,8 @@ __global__ void gaussian_kernel(double *pdfset, double *coordo,
  * @param  nvar   [number of variables]
  * @param  Nt     [number of pdf to be estimated]
  * @param  No     [number of the given samples]
+ * @param  ktype  [the type of kernel]
+ * @param  unitvolumn [the volumn of the unit sphere in nvar-dimension]
  * @param  bdinv  [an array representing the inverse bandwidth matrix]
  * @param  bddet  [the determinant of the bandwidth matrix]
  * @param  coordo [an array of the sample locations]
@@ -92,7 +219,8 @@ __global__ void gaussian_kernel(double *pdfset, double *coordo,
  * @return        [an array of pdf to be estimated]
  */
 extern "C" {
-  double *cuda_kde_general(int nvar, int Nt, int No, double bddet, double *bdinv, double *coordo, double *coordt)
+  double *cuda_kde_general(int nvar, int Nt, int No, int ktype, double unitvolumn,
+                           double bddet, double *bdinv, double *coordo, double *coordt)
   {
     double *pdfset, *d_pdfset;         // the pdf array to be estimated
     double *d_coordo, *d_coordt;       // the coordo and coordt in GPU memory
@@ -116,7 +244,19 @@ extern "C" {
     cudaMemset(d_pdfset, 0, Nt*sizeof(double));
 
     // Perform cuda KDE
-    gaussian_kernel<<<512,512>>>(d_pdfset, d_coordo, d_coordt, d_bdinv, bddet, No, Nt, nvar);
+    if(ktype == 1) {
+      epanechnikov_kernel<<<512,512>>>(d_pdfset, d_coordo, d_coordt, d_bdinv, bddet, unitvolumn, No, Nt, nvar);
+    }
+    else if(ktype == 2){
+      gaussian_kernel<<<512,512>>>(d_pdfset, d_coordo, d_coordt, d_bdinv, bddet, No, Nt, nvar);
+    }
+    else if(ktype == 3){
+      quartic_kernel<<<512,512>>>(d_pdfset, d_coordo, d_coordt, d_bdinv, bddet, No, Nt, nvar);
+    }
+    else {
+      printf("Unknown kernel type index: %d", ktype);
+    }
+    /* gaussian_kernel<<<512,512>>>(d_pdfset, d_coordo, d_coordt, d_bdinv, bddet, No, Nt, nvar); */
 
     // Copy the device back to the host
     cudaMemcpy(pdfset, d_pdfset, Nt*sizeof(double), cudaMemcpyDeviceToHost);

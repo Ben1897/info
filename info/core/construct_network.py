@@ -230,10 +230,10 @@ def excludeSpuriousParents(g, data, nodedict, deep=False,
         node_number_p = get_node_number(nodedict_p, ndim, 0)
 
         # Exclude Xi_0 if Xi_0 ind Xj_tau, and update g
-        if independence(nodedict_p, nodedict, data,
+        if independence(nodedict_p, nodedict, data, shuffle_ind=[0],
                         ntest=ntest, sstmethod=sstmethod, kernel=kernel, alpha=alpha,
                         approach=approach, base=base, returnTrue=returnTrue):
-            print "Exclude the link %s -> %s:" % (nodedict_p, nodedict)
+            print "Exclude the link %s -> %s." % (nodedict_p, nodedict)
             ppaset.discard(node_number_p)
             g.remove_edge(node_number_p, node_number)
 
@@ -244,32 +244,33 @@ def excludeSpuriousParents(g, data, nodedict, deep=False,
 
         # Exclude Xi_0 if it is still in ppaset and the dependency Xi_0 -> Xj_tau is due to other paths
         if (node_number_p in paseti) and (len(paseti) > 1):
-            if conditionalIndependence(nodedict_p, nodedict, data=data,
+            if conditionalIndependence(nodedict_p, nodedict, data=data, shuffle_ind=[0],
                                        conditionset=list(set(paseti_dict)-{nodedict_p}),
                                        ntest=ntest, sstmethod=sstmethod, kernel=kernel, alpha=alpha,
                                        approach=approach, base=base, returnTrue=returnTrue):
-                print "Exclude the link %s -> %s conditioning on %s:" % (nodedict_p, nodedict, list(set(paseti_dict)-{nodedict_p}))
+                print "Exclude the link %s -> %s conditioning on %s." % (nodedict_p, nodedict, list(set(paseti_dict)-{nodedict_p}))
                 ppaset.discard(node_number_p)
                 paseti.discard(node_number_p)
                 g.remove_edge(node_number_p, node_number)
 
-        # Now, there are still more than parent of Xj_tau that are in the paths Xi_0 -> Xj_tau, check whether their links to Xj_tau are due to the common driver Xi_0
-        if len(ppaset) > 1:
+        # Now, there are still more than one parent of Xj_tau that are in the paths Xi_0 -> Xj_tau, check whether their links to Xj_tau are due to the common driver Xi_0
+        # if len(ppaset) > 1:
+        if len(paseti) > 1:
             for pa in paseti-{node_number_p}:
                 pa_dict = getNodesDict(g, [pa])[0]
-                if conditionalIndependence(pa_dict, nodedict, data=data,
+                if conditionalIndependence(pa_dict, nodedict, data=data, shuffle_ind=[0],
                                            conditionset=[nodedict_p],
                                            ntest=ntest, sstmethod=sstmethod, kernel=kernel, alpha=alpha,
                                            approach=approach, base=base, returnTrue=returnTrue):
-                    print "Exclude the link %s -> %s conditioning on %s:" % (nodedict_p, nodedict, [nodedict_p])
+                    print "Exclude the link %s -> %s conditioning on %s." % (pa_dict, nodedict, [nodedict_p])
                     ppaset.discard(pa)
                     paseti.discard(pa)
                     g.remove_edge(pa, node_number)
-                elif deep and conditionalIndependence(pa_dict, nodedict, data=data,
+                elif deep and conditionalIndependence(pa_dict, nodedict, data=data, shuffle_ind=[0],
                                                       conditionset=list(set(paseti_dict)-{pa_dict}),
                                                       ntest=ntest, sstmethod=sstmethod, kernel=kernel, alpha=alpha,
                                                       approach=approach, base=base, returnTrue=returnTrue):
-                    print "Exclude the link %s -> %s conditioning on %s:" % (nodedict_p, nodedict, list(set(paseti_dict)-{pa_dict}))
+                    print "Exclude the link %s -> %s conditioning on %s." % (pa_dict, nodedict, list(set(paseti_dict)-{pa_dict}))
                     ppaset.discard(pa)
                     paseti.discard(pa)
                     g.remove_edge(pa, node_number)

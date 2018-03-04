@@ -14,17 +14,18 @@ conductSST()
 
 import numpy as np
 
-from ..core.info import info
+from ..core.info import info, computeMI, computeCMI
 from .others import reorganize_data
 
 sstmethod_set = ['traditional', 'segments', 'seasonal']
 
 
-def shuffle(data, sstmethod='traditional'):
+def shuffle(data, shuffle_ind=[0], sstmethod='traditional'):
     """Shuffle data based on the shuffling method.
 
     Input:
     data      -- the data series of the variable to be shuffled [ndarray with shape (npts, ndim)]
+    shuffle_ind -- the list of indices for shuffle test [list]
     sstmethod -- the method used for generating the surrogate data [str]
 
     """
@@ -40,11 +41,11 @@ def shuffle(data, sstmethod='traditional'):
         # permutation = lambda i: np.random.permutation(ind)
         # ind_p = np.array(map(permutation, range(ndim))).T
         for i in range(ndim):
-            data_shuffled[:, i] = np.random.permutation(data[:, i])
-            # if i == 0:
-            #     data_shuffled[:, i] = np.random.permutation(data[:, i])
-            # else:
-            #     data_shuffled[:, i] = data[:, i]
+            # data_shuffled[:, i] = np.random.permutation(data[:, i])
+            if i in shuffle_ind:
+                data_shuffled[:, i] = np.random.permutation(data[:, i])
+            else:
+                data_shuffled[:, i] = data[:, i]
     elif sstmethod == 'segments':
         raise Exception('Not ready for the seasonal surrogates!')
         # ind_set = np.random.randint(low=0, high=nsamples, size=n)
@@ -57,7 +58,8 @@ def shuffle(data, sstmethod='traditional'):
     return data_shuffled
 
 
-def independence(node1, node2, data, ntest=100, sstmethod='traditional', alpha=0.05, kernel='gaussian', approach='kde_cuda_general', base=2., returnTrue=False):
+def independence(node1, node2, data, shuffle_ind=[0], ntest=100, bandwidth='silverman', sstmethod='traditional',
+                 alpha=0.05, kernel='gaussian', approach='kde_cuda_general', base=2., returnTrue=False):
     """
     Conduct the independence test based on the mutual information of two variables from data.
 
@@ -65,6 +67,7 @@ def independence(node1, node2, data, ntest=100, sstmethod='traditional', alpha=0
     node1      -- the first node of interest with format (index, tau) [tuple]
     node2      -- the second node of interest with format (index, tau) [tuple]
     data       -- the data points [numpy array with shape (npoints, ndim)]
+    shuffle_ind -- the list of indices for shuffle test [list]
     ntest      -- the number of the shuffles [int]
     sstmethod  -- the statistical significance test method [str]
     alpha      -- the significance level [float]
@@ -78,17 +81,19 @@ def independence(node1, node2, data, ntest=100, sstmethod='traditional', alpha=0
     data12 = reorganize_data(data, [node1, node2])
 
     # Calculate the mutual information of them
-    mi = info(case=2, data=data12, approach=approach, kernel=kernel,
+    mi = info(case=2, data=data12, approach=approach, kernel=kernel, bandwidth=bandwidth,
               base=base, conditioned=False).ixy
+    # mi = computeMI(data=data12, approach=approach, kernel=kernel, base=base)
 
     # Calculate the mutual information of each pair of (xdata_shuffled and ydata)
     mi_shuffled_all = []
     for i in range(ntest):
         # Get shuffled data
-        data12_shuffled = shuffle(data12, sstmethod=sstmethod)
+        data12_shuffled = shuffle(data12, shuffle_ind, sstmethod=sstmethod)
         # Calculate the corresponding mi
-        mi_shuffled = info(case=2, data=data12_shuffled, approach=approach,
+        mi_shuffled = info(case=2, data=data12_shuffled, approach=approach, bandwidth=bandwidth,
                            kernel=kernel, base=base, conditioned=False).ixy
+        # mi_shuffled = computeMI(data=data12_shuffled, approach=approach, kernel=kernel, base=base)
         mi_shuffled_all.append(mi_shuffled)
 
     # Calculate 95% and 5% percentiles
@@ -97,6 +102,7 @@ def independence(node1, node2, data, ntest=100, sstmethod='traditional', alpha=0
 
     # Return results:
     if mi > upper:
+    # if mi > upper or mi < lower:
         if returnTrue:
             return False, mi, upper, lower
         else:
@@ -108,7 +114,8 @@ def independence(node1, node2, data, ntest=100, sstmethod='traditional', alpha=0
             return True
 
 
-def conditionalIndependence(node1, node2, conditionset, data, ntest=100, sstmethod='traditional', alpha=0.05, kernel='gaussian', approach='kde_cuda_general', base=2., returnTrue=False):
+def conditionalIndependence(node1, node2, conditionset, data, shuffle_ind=[0], ntest=100, bandwidth='silverman',
+                            sstmethod='traditional', alpha=0.05, kernel='gaussian', approach='kde_cuda_general', base=2., returnTrue=False):
     """
     Conduct the conditional independence test based on the conditional mutual information of two variables from data.
 
@@ -117,6 +124,7 @@ def conditionalIndependence(node1, node2, conditionset, data, ntest=100, sstmeth
     node2        -- the second node of interest with format (index, tau) [tuple]
     conditionset -- the condition set with format [(index, tau)] [list of tuples]
     data         -- the data points [numpy array with shape (npoints, ndim)]
+    shuffle_ind -- the list of indices for shuffle test [list]
     ntest        -- the number of the shuffles [int]
     sstmethod  -- the statistical significance test method [str]
     alpha      -- the significance level [float]
@@ -130,17 +138,19 @@ def conditionalIndependence(node1, node2, conditionset, data, ntest=100, sstmeth
     data12cond = reorganize_data(data, [node1, node2]+conditionset)
 
     # Calculate the conditional mutual information of them
-    cmi = info(case=2, data=data12cond, approach=approach, kernel=kernel,
-              base=base, conditioned=True).ixy_w
+    cmi = info(case=2, data=data12cond, approach=approach, kernel=kernel, bandwidth=bandwidth,
+               base=base, conditioned=True).ixy_w
+    # cmi = computeCMI(data=data12cond, approach=approach, kernel=kernel, base=base)
 
     # Calculate the conditional mutual information of each pair of (xdata_shuffled and ydata)
     cmi_shuffled_all = np.zeros(ntest)
     for i in range(ntest):
         # Get shuffled data
-        data12cond_shuffled = shuffle(data12cond, sstmethod=sstmethod)
+        data12cond_shuffled = shuffle(data12cond, shuffle_ind, sstmethod=sstmethod)
         # Calculate the corresponding cmi
-        cmi_shuffled = info(case=2, data=data12cond_shuffled, approach=approach,
+        cmi_shuffled = info(case=2, data=data12cond_shuffled, approach=approach, bandwidth=bandwidth,
                             kernel=kernel, base=base, conditioned=True).ixy_w
+        # cmi_shuffled = computeCMI(data=data12cond_shuffled, approach=approach, kernel=kernel, base=base)
         cmi_shuffled_all[i] = cmi_shuffled
 
     # Calculate 95% and 5% percentiles
@@ -150,6 +160,7 @@ def conditionalIndependence(node1, node2, conditionset, data, ntest=100, sstmeth
     # print cmi_shuffled_all.max(), cmi_shuffled_all.min()
     # Return results:
     if cmi > upper:
+    # if cmi > upper or cmi < lower:
         if returnTrue:
             return False, cmi, upper, lower
         else:

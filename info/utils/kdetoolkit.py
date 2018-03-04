@@ -95,7 +95,7 @@ def kde_c(ndim, kernel, bd, Nt, No, coordo, coordt, dtype='float64', rtime=False
 # Function for estimating PDF using c-cuda based the general multivaraite kde
 def kde_cuda_general(ndim, kernel, bdinv, bddet, Nt, No, coordo, coordt, dtype='float64', rtime=False):
     '''
-    Calculating PDF by using KDE (Epanechnikov) based on C-CUDA code.
+    Calculating PDF by using the general KDE based on C-CUDA code.
     Inputs:
         ndim   -- the number of dimensions/variables [int]
         kernel -- the type of the kernel [str]
@@ -109,8 +109,15 @@ def kde_cuda_general(ndim, kernel, bdinv, bddet, Nt, No, coordo, coordt, dtype='
         pdf    -- the estimated pdf [ndarray with shape(Nt,)]
     '''
     # Check the kernel type
-    if kernel.lower() != 'gaussian':
-        print "Only Gaussian kernel is available for computing the general multivariate KDE for now!"
+    if kernel.lower() == 'epanechnikov':
+        ktype = 1
+    elif kernel.lower() == 'gaussian':
+        ktype = 2
+    elif kernel.lower() == 'quartic':
+        ktype = 3
+    else:
+        raise Exception('Unknown kernel type %s' % kernel)
+        # print "Only Gaussian kernel is available for computing the general multivariate KDE for now!"
 
     # Convert the float value of the bd into a list in a numpy array
     if ndim == 1 and isinstance(bdinv, float):
@@ -125,11 +132,17 @@ def kde_cuda_general(ndim, kernel, bdinv, bddet, Nt, No, coordo, coordt, dtype='
         print Nt, ndim, coordt.shape
         raise Exception('Wrong dimension and size of coordt!')
 
+    # Compute the unit volumn for the Epanechnikov kernel
+    if ktype == 1:
+        unitVolume = compute_unitvolumn(ndim)
+    else:
+        unitVolume = 0.
+
     # Initialize the cuda-based shared library
     # dll           = ctypes.CDLL('./cuda_kde.so')
     dll           = ctypes.CDLL(cudakdegeneral_path)
     func          = dll.cuda_kde_general
-    func.argtypes = [c_int, c_int, c_int, c_double,
+    func.argtypes = [c_int, c_int, c_int, c_int, c_double, c_double,
                      POINTER(c_double), POINTER(c_double), POINTER(c_double)]
     func.restype  = POINTER(c_double)
 
@@ -143,14 +156,17 @@ def kde_cuda_general(ndim, kernel, bdinv, bddet, Nt, No, coordo, coordt, dtype='
     ndim_p   = c_int(ndim)
     Nt_p     = c_int(Nt)
     No_p     = c_int(No)
+    ktype_p  = c_int(ktype)
     bddet_p  = c_double(bddet)
+    unitVolume_p  = c_double(unitVolume)
     bdinv_p  = bdinv.ctypes.data_as(POINTER(c_double))
     coordo_p = coordo.ctypes.data_as(POINTER(c_double))
     coordt_p = coordt.ctypes.data_as(POINTER(c_double))
 
     # Calculate the pdf and compute the time
     start = time()
-    pdf   = func(ndim_p, Nt_p, No_p, bddet_p, bdinv_p, coordo_p, coordt_p)
+    pdf   = func(ndim_p, Nt_p, No_p, ktype_p, unitVolume_p,
+                 bddet_p, bdinv_p, coordo_p, coordt_p)
     end   = time()
 
     # Shape pdf
@@ -331,3 +347,19 @@ def kde_scipy(ndim, kernel, bd, Nt, No, coordo, coordt, dtype='float64', rtime=F
         return pdf, end - start
     else:
         return pdf
+
+
+def compute_unitvolumn(ndim):
+    """Compute the volume of the unit sphere with the ndim dimensions."""
+    if ndim == 1:
+        return 1
+
+    mode, remain = ndim / 2, ndim %2
+    coeff1 = float(reduce(lambda x,y:x*y, range(1, mode+1)))
+    coeff2 = float(reduce(lambda x,y:x*y, range(1, ndim+1)))
+    if remain == 0:
+        unitVolume = np.pi ** mode / coeff1
+    elif remain == 1:
+        unitVolume = 2. * coeff1 * (4.*np.pi)**mode / coeff2
+
+    return unitVolume

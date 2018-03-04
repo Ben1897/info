@@ -706,6 +706,10 @@ def equal(a, b, e=1e-10):
 
 def computeEntropy(pdfs, base=2, averaged=True):
     '''Compute the entropy H(X).'''
+    # normalize pdf if not averaged
+    if not averaged:
+        pdfs = pdfs / np.sum(pdfs)
+
     # Calculate the log of pdf
     pdfs_log = np.ma.log(pdfs)
     pdfs_log = pdfs_log.filled(0) / np.log(base)
@@ -749,64 +753,106 @@ def computeConditionalInfo(xpdfs, ypdfs, xypdfs, base=2):
     return np.sum(xpdfs1d*hy_x_x)
 
 
-def computeMutualInfo(xpdfs, ypdfs, pdfs, base=2):
+def computeMI(data, approach='kde_c', bandwidth='silverman', kernel='gaussian', base=2, xyindex=None):
     '''
-    Compute the mutual information I(X;Y)
+    Compute the mutual information I(X;Y) based on the original formula (not the average version).
     Input:
-    xpdfs  -- pdf of x [a numpy array with shape (nx)]
-    ypdfs  -- pdf of y [a numpy array with shape (ny)]
-    pdfs -- the joint pdf of x and y [a numpy array with shape (nx, ny)]
-    Output:
-    the mutual information [float]
+    data        -- the data [numpy array with shape (npoints, ndim)]
+    approach    -- the code for computing PDF by using KDE
+    kernel      -- the kernel type [string]
+    bandwith    -- the band with of the kernel [string or float]
+    base        -- the logrithmatic base (the default is 2) [float/int]
+    xyindex     -- a list of index indicating the position of the involved variable set, used for computeInfo*D_multivariate*
+                    1D: [xlastind], 2D: [xlastind, ylastind], 3D: [xlastind,ylastind,zlastind]
+                    note that xlastind < ylastind < zlastind <= len(pdfs.shape)
+                    if None, used for computeInfo*D*
     '''
-    nx, ny = pdfs.shape
+    # Check the dimension of the data
+    if len(data.shape) > 2:
+        raise Exception('The dimension of the data matrix is not (npts, ndim)!')
 
-    # Expand xpdfs and ypdfs to the shape (nx, ny)
-    xpdfs = np.tile(xpdfs[:, np.newaxis], (1, ny))
-    ypdfs = np.tile(ypdfs[np.newaxis, :], (nx, 1))
+    npts, ndim = data.shape
 
-    # Calculate log(p(x,y)/(p(x)*p(y)))
-    ixypdf_log = np.ma.log(pdfs/(xpdfs*ypdfs))
-    ixypdf_log = ixypdf_log.filled(0)
+    # Initiate the PDF computer
+    computer = pdf_computer(approach=approach, bandwidth=bandwidth, kernel=kernel)
 
-    # Calculate each info element in I(X;Y)
-    ixy_xy = pdfs * ixypdf_log / np.log(base)
+    # Compute the pdfs
+    if xyindex:
+        xlastind = xyindex[0]
+        _, pdfs  = computer.computePDF(data)
+        _, xpdfs  = computer.computePDF(data[:,range(0,xlastind)])
+        _, ypdfs  = computer.computePDF(data[:,range(xlastind,ndim)])
+    else:
+        _, pdfs  = computer.computePDF(data)
+        _, xpdfs = computer.computePDF(data[:,[0]])
+        _, ypdfs = computer.computePDF(data[:,[1]])
 
-    # Calculate mutual information
-    return np.sum(ixy_xy)
+    # Normalize PDF
+    pdfsn = pdfs / np.sum(pdfs)
+
+    # Calculate the log of pdf
+    pdfs_log  = np.ma.log(pdfs)
+    pdfs_log  = pdfs_log.filled(0) / np.log(base)
+    xpdfs_log = np.ma.log(xpdfs)
+    xpdfs_log = xpdfs_log.filled(0) / np.log(base)
+    ypdfs_log = np.ma.log(ypdfs)
+    ypdfs_log = ypdfs_log.filled(0) / np.log(base)
+
+    return np.sum((pdfs_log - xpdfs_log - ypdfs_log)*pdfsn)
 
 
-def computeConditionalMutualInformation(pdfs, option=1, base=2.):
+def computeCMI(data, approach='kde_c', bandwidth='silverman', kernel='gaussian', base=2, xyindex=None):
     '''
-    Compute the transfer entropy T(Y->Z|X) or conditional mutual information I(Y,Z|X)
+    Compute the conditional mutual information I(X;Y|Z) based on the original formula (not the average version).
     Input:
-    pdfs   -- the joint pdf of x, y and z [a numpy array with shape (nx, ny, nz)]
-    option -- 1: I(Y,Z|X); 2: I(X,Z|Y)
-    base   -- the log base [float]
-    Output:
-    the transfer entropy [float]
+    data        -- the data [numpy array with shape (npoints, ndim)]
+    approach    -- the code for computing PDF by using KDE
+    kernel      -- the kernel type [string]
+    bandwith    -- the band with of the kernel [string or float]
+    base        -- the logrithmatic base (the default is 2) [float/int]
+    xyindex     -- a list of index indicating the position of the involved variable set, used for computeInfo*D_multivariate*
+                    1D: [xlastind], 2D: [xlastind, ylastind], 3D: [xlastind,ylastind,zlastind]
+                    note that xlastind < ylastind < zlastind <= len(pdfs.shape)
+                    if None, used for computeInfo*D*
     '''
-    nx, ny, nz = pdfs.shape
-    xpdfs, ypdfs, zpdfs    = np.sum(pdfs, axis=(1,2)), np.sum(pdfs, axis=(0,2)), np.sum(pdfs, axis=(0,1))  # p(x), p(y), p(z)
-    xypdfs, yzpdfs, xzpdfs = np.sum(pdfs, axis=(2)), np.sum(pdfs, axis=(0)), np.sum(pdfs, axis=(1))  # p(x,y), p(y,z), p(x,z)
+    # Check the dimension of the data
+    if len(data.shape) > 2:
+        raise Exception('The dimension of the data matrix is not (npts, ndim)!')
 
-    if option == 1:  # T(Y->Z|X)
-        # Expand zpdfs, xzpdfs, yzpdfs to the shape (nx, ny, nz)
-        factor1 = np.tile(xpdfs[:, np.newaxis, np.newaxis], [1, ny, nz])
-        factor2 = np.tile(xzpdfs[:, np.newaxis, :], [1, ny, 1])
-        factor3 = np.tile(xypdfs[:, :, np.newaxis], [1, 1, nz])
-    elif option == 2:  # T(Y->Z|X)
-        # Expand zpdfs, xzpdfs, yzpdfs to the shape (nx, ny, nz)
-        factor1 = np.tile(ypdfs[np.newaxis, :, np.newaxis], [nx, 1, nz])
-        factor2 = np.tile(yzpdfs[np.newaxis, :, :], [nx, 1, 1])
-        factor3 = np.tile(xypdfs[:, :, np.newaxis], [1, 1, nz])
+    npts, ndim = data.shape
 
-    # Calculate log(p(y|z,x)/p(y|x))
-    txypdf_log = np.ma.log(pdfs*factor1/(factor2*factor3))
-    txypdf_log = txypdf_log.filled(0)
+    # Initiate the PDF computer
+    computer = pdf_computer(approach=approach, bandwidth=bandwidth, kernel=kernel)
 
-    # Calculate each info element in T(Y->Z|X)
-    txypdf = pdfs * txypdf_log / np.log(base)
+    # Compute the pdfs
+    if xyindex:
+        xlastind, ylastind = xyindex[0], xyindex[1]
+        _, pdfs  = computer.computePDF(data)
+        _, xpdfs  = computer.computePDF(data[:,range(0,xlastind)])
+        _, ypdfs  = computer.computePDF(data[:,range(xlastind,ylastind)])
+        _, wpdfs  = computer.computePDF(data[:,range(ylastind,ndim)])
+        _, xypdfs = computer.computePDF(data[:,range(0,ylastind)])
+        # _, xwpdfs = computer.computePDF(data[:,range(0,xlastind)+range(ylastind,ndim)])
+        # _, ywpdfs = computer.computePDF(data[:,range(xlastind,ndim)])
+    else:
+        _, pdfs  = computer.computePDF(data)
+        _, xpdfs = computer.computePDF(data[:,[0]])
+        _, ypdfs = computer.computePDF(data[:,[1]])
+        _, wpdfs  = computer.computePDF(data[:,2:])
+        _, xypdfs = computer.computePDF(data[:,[0,1]])
+    xy_wpdfs  = xypdfs / wpdfs
+    x_wpdfs   = xpdfs / wpdfs
+    y_wpdfs   = ypdfs / wpdfs
 
-    # Calculate the transfer entropy
-    return np.sum(txypdf)
+    # Normalize PDF
+    pdfsn = pdfs / np.sum(pdfs)
+
+    # Calculate the log of pdf
+    pdfs_log  = np.ma.log(xy_wpdfs)
+    pdfs_log  = pdfs_log.filled(0) / np.log(base)
+    xpdfs_log = np.ma.log(x_wpdfs)
+    xpdfs_log = xpdfs_log.filled(0) / np.log(base)
+    ypdfs_log = np.ma.log(y_wpdfs)
+    ypdfs_log = ypdfs_log.filled(0) / np.log(base)
+
+    return np.sum((pdfs_log - xpdfs_log - ypdfs_log)*pdfsn)

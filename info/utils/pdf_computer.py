@@ -38,7 +38,7 @@ class pdf_computer(object):
 
     allowedApproach = ['kde_sklearn', 'kde_scipy', 'kde_cuda', 'kde_cuda_general', 'kde_c']
     allowedBandwidthMethod = ['silverman', 'scott']
-    allowedKernels = ['gaussian', 'epanechnikov']
+    allowedKernels = ['gaussian', 'epanechnikov', 'quartic']
 
     def __init__(self, approach='kde_c', bandwidth='silverman', kernel='gaussian'):
         '''
@@ -163,7 +163,7 @@ class pdf_computer(object):
         # Ref:
         # Eq.(6.43) in Scott's Multivariate Density Estimation: Theory, Practice, and Visualization, Second Edition (2015)
         # h = (4./(ndim+2))**(1./(ndim+4)) * std * n ** (-1./(ndim+4))
-        h  = (4./(ndim+2))**(1./(ndim+4)) * npts ** (-1./(ndim+4))
+        h  = (4./(ndim+2))**(1./(ndim+4.)) * npts ** (-1./(ndim+4.))
 
         return h
 
@@ -178,7 +178,7 @@ class pdf_computer(object):
         # Ref:
         # Eq.(6.44) in Scott's Multivariate Density Estimation: Theory, Practice, and Visualization, Second Edition (2015)
         # h = (4./(ndim+2))**(1./(ndim+4)) * std * n ** (-1./(ndim+4))
-        h  = npts ** (-1./(ndim+4))
+        h  = npts ** (-1./(ndim+4.))
 
         return h
 
