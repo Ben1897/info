@@ -27,7 +27,7 @@ from ..utils.sst import independence, conditionalIndependence
 ################
 # Key Function #
 ################
-def findCausalRelationships(data, dtau, taumax, taumin, deep=False,
+def findCausalRelationships(data, dtau, taumax, taumin, contemp=True, deep=False,
                             ntest=100, sstmethod='traditional', kernel='gaussian', alpha=.05,
                             approach='kde_cuda_general', base=2., returnTrue=False):
     """
@@ -38,6 +38,7 @@ def findCausalRelationships(data, dtau, taumax, taumin, deep=False,
     dtau       -- the range of the time lags used for convergence check [int]
     taumax     -- the maximum time lag for updating parents (also used for convergence check) [int]
     taumin     -- the minimum time lag for updating parents (also used for convergence check) [int]
+    contemp    -- indicating whether to include the direct contemporaneous links [bool]
     deep       -- indicating whether to perform a deeper conditional independence test [bool]
     ntest      -- the number of the shuffles [int]
     sstmethod  -- the statistical significance test method [str]
@@ -51,16 +52,17 @@ def findCausalRelationships(data, dtau, taumax, taumin, deep=False,
     # Get the number of data points and the number of variables
     npts, ndim = data.shape
 
-    # Initialize the graph, the parents set, and the time lag
+    # Initialize the graph, the final parents set, and the time lag
     g          = nx.DiGraph(ndim=ndim, tau=0)  # the DAG for time series graph
     causalDict = {}            # the final parents set
     tau        = 0             # the time lag
 
-    # Add all the nodes at tau = 0 to the graph g
-    for j in range(ndim):
-        nodedict    = (j, tau)
-        node_number = get_node_number(nodedict, ndim, 0)
-        g.add_node(node_number)
+    # Add all the nodes and the contemporaneous links if required at tau = 0 to the graph g
+    print ""
+    print "The contemporaneous parents ---"
+    g = initializeNodesLinksAtLagZero(g, data, contemp)
+
+    printParents(g, tau)
 
     # Update the parents at time lag tau
     while not isConvergence(g, taumin, taumax, dtau):
@@ -123,12 +125,83 @@ def printParents(g, tau):
     else:
         print "Time lag: %d" % tau
         for j in range(ndim):
-            parents = getParents(g, (j, tau))
-            print "The parents of node %d:" % j
+            target  = (j, tau)
+            parents = getParents(g, target)
+            print "The parents of node %s:" % (target,)
             print parents
         print ""
 
     return
+
+
+def initializeNodesLinksAtLagZero(g, data, contemp=True,
+                                  ntest=100, sstmethod='traditional', kernel='gaussian', alpha=.05,
+                                  approach='kde_cuda_general', base=2., returnTrue=False):
+    """
+    Initialize all the nodes and the contemporaneous links at tau=0.
+
+    Inputs:
+    g       -- the graph [graph]
+    data    -- the observation data [numpy array with shape (npoints, ndim)]
+    contemp -- indicating whether to include the direct contemporaneous links [bool]
+    ntest      -- the number of the shuffles [int]
+    sstmethod  -- the statistical significance test method [str]
+    alpha      -- the significance level [float]
+    kernel     -- the kernel used for KDE [str]
+    approach   -- the package (cuda or c) used for KDE [str]
+    base       -- the log base [float]
+    returnTrue -- indicating whether the true mutual information is returned if the significant test fails [bool]
+    """
+    # Get the maximum time lag and the number of variables in the graph g
+    ndim, tau = g.graph['ndim'], g.graph['tau']
+
+    if tau != 0:
+        raise Exception('The maximum lag in the graph is not zero!')
+
+    # Initialize the nodes at tau=0
+    for j in range(ndim):
+        nodedict    = (j, tau)
+        node_number = get_node_number(nodedict, ndim, 0)
+        g.add_node(node_number)
+
+    # Include the contemporaneous links if necessary
+    if contemp:
+        for j in range(1, ndim):
+            nodedict    = (j, tau)
+            node_number = get_node_number(nodedict, ndim, 0)
+
+            # Get the preliminary parents for Xj_0, which are [X1_0, ..., Xj-1_0]
+            ppaset      = set(range(j))
+            ppaset_dict = getNodesDict(g, list(ppaset))
+
+            # Exclude the spurious parents Xi_0 in ppaset if
+            # (1) Xi_0 ind Xj_0
+            # (2) Xi_0 ind Xj_0 conditioning on the remaining nodes in ppaset
+            node_number_remove = []
+            for pa in ppaset:
+                padict = getNodesDict(g, [pa])[0]
+
+                # (1) Xi_0 ind Xj_0
+                if independence(padict, nodedict, data, shuffle_ind=[0],
+                                ntest=ntest, sstmethod=sstmethod, kernel=kernel, alpha=alpha,
+                                approach=approach, base=base, returnTrue=returnTrue):
+                    print "Exclude the link %s -> %s." % (padict, nodedict)
+                    node_number_remove.append(pa)
+                # (2) Xi_0 ind Xj_0 conditioning on the remaining nodes in ppaset
+                elif len(ppaset) > 1 and conditionalIndependence(padict, nodedict, data=data, shuffle_ind=[0],
+                                                                 conditionset=list(set(ppaset_dict)-{padict}),
+                                                                 ntest=ntest, sstmethod=sstmethod, kernel=kernel, alpha=alpha,
+                                                                 approach=approach, base=base, returnTrue=returnTrue):
+                    print "Exclude the link %s -> %s conditioning on %s." % (padict, nodedict, list(set(ppaset_dict)-{padict}))
+                    node_number_remove.append(pa)
+
+            # Remove the spurious nodes
+            paset =  ppaset - set(node_number_remove)
+
+            # Link the remaining parents with the target node in the graph
+            g = updateGraphByParents(g, paset, nodedict)
+
+    return g
 
 
 def getPreliminaryParents(g, j):
@@ -221,9 +294,10 @@ def excludeSpuriousParents(g, data, nodedict, deep=False,
     node_number = get_node_number(nodedict, ndim, 0)
 
     # Get the preliminary parents
-    ppaset = set(g.predecessors(node_number))
+    ppaset      = set(g.predecessors(node_number))
+    ppaset_dict = getNodesDict(g, list(ppaset))
 
-    # Exclude the spurious parents
+    # Exclude Xi_0 if Xi_0 ind Xj_tau, and update g
     for i in range(ndim):
         # Get the node number for Xi_0
         nodedict_p    = (i, 0)
@@ -235,26 +309,65 @@ def excludeSpuriousParents(g, data, nodedict, deep=False,
                         approach=approach, base=base, returnTrue=returnTrue):
             print "Exclude the link %s -> %s." % (nodedict_p, nodedict)
             ppaset.discard(node_number_p)
+            ppaset_dict.remove(nodedict_p)
             g.remove_edge(node_number_p, node_number)
+
+    # Exclude Xi_0 if it is still in ppaset and Xi_0 ind Xj_tau given the remaining parents
+    node_numbers_remove = []
+    for i in range(ndim):
+        # Get the node number for Xi_0
+        nodedict_p    = (i, 0)
+        node_number_p = get_node_number(nodedict_p, ndim, 0)
+
+        # # Get all the paths from Xi_0 to Xj_tau and the parents of Xj_tau in these paths
+        # nodes_in_paths = getCausalPaths(g, node_number_p, node_number)
+        # paseti         = set(intersect(nodes_in_paths, ppaset))
+        # paseti_dict    = getNodesDict(g, list(paseti))
+        #
+        # # Exclude Xi_0 if it is still in ppaset and the dependency Xi_0 -> Xj_tau is due to other paths
+        # if (node_number_p in paseti) and (len(paseti) > 1):
+        #     if conditionalIndependence(nodedict_p, nodedict, data=data, shuffle_ind=[0],
+        #                                conditionset=list(set(paseti_dict)-{nodedict_p}),
+        #                                ntest=ntest, sstmethod=sstmethod, kernel=kernel, alpha=alpha,
+        #                                approach=approach, base=base, returnTrue=returnTrue):
+        #         print "Exclude the link %s -> %s conditioning on %s." % (nodedict_p, nodedict, list(set(paseti_dict)-{nodedict_p}))
+        #         ppaset.discard(node_number_p)
+        #         paseti.discard(node_number_p)
+        #         g.remove_edge(node_number_p, node_number)
+
+        # Exclude Xi_0 if it is still in ppaset and Xi_0 ind Xj_tau given the remaining parents
+        if (node_number_p in ppaset) and (len(ppaset) > 1):
+            if conditionalIndependence(nodedict_p, nodedict, data=data, shuffle_ind=[0],
+                                       conditionset=list(set(ppaset_dict)-{nodedict_p}),
+                                       ntest=ntest, sstmethod=sstmethod, kernel=kernel, alpha=alpha,
+                                       approach=approach, base=base, returnTrue=returnTrue):
+                print "Exclude the link %s -> %s conditioning on %s." % (nodedict_p, nodedict, list(set(ppaset_dict)-{nodedict_p}))
+                node_numbers_remove.append(node_number_p)
+                # ppaset.discard(node_number_p)
+                # paseti.discard(node_number_p)
+                # ppaset_dict.remove(nodedict_p)
+                # paseti_dict.remove(nodedict_p)
+
+    # Remove the nodes in the graph
+    for node_number_start in set(node_numbers_remove):
+        nodedict_start = getNodesDict(g, [node_number_start])[0]
+        ppaset.discard(node_number_start)
+        ppaset_dict.remove(nodedict_start)
+        g.remove_edge(node_number_start, node_number)
+
+    # Now, if there are still more than one parent of Xj_tau that are in the paths Xi_0 -> Xj_tau, check whether their links to Xj_tau are due to the common driver Xi_0
+    node_numbers_remove = []
+    for i in range(ndim):
+        # Get the node number for Xi_0
+        nodedict_p    = (i, 0)
+        node_number_p = get_node_number(nodedict_p, ndim, 0)
 
         # Get all the paths from Xi_0 to Xj_tau and the parents of Xj_tau in these paths
         nodes_in_paths = getCausalPaths(g, node_number_p, node_number)
         paseti         = set(intersect(nodes_in_paths, ppaset))
         paseti_dict    = getNodesDict(g, list(paseti))
 
-        # Exclude Xi_0 if it is still in ppaset and the dependency Xi_0 -> Xj_tau is due to other paths
-        if (node_number_p in paseti) and (len(paseti) > 1):
-            if conditionalIndependence(nodedict_p, nodedict, data=data, shuffle_ind=[0],
-                                       conditionset=list(set(paseti_dict)-{nodedict_p}),
-                                       ntest=ntest, sstmethod=sstmethod, kernel=kernel, alpha=alpha,
-                                       approach=approach, base=base, returnTrue=returnTrue):
-                print "Exclude the link %s -> %s conditioning on %s." % (nodedict_p, nodedict, list(set(paseti_dict)-{nodedict_p}))
-                ppaset.discard(node_number_p)
-                paseti.discard(node_number_p)
-                g.remove_edge(node_number_p, node_number)
-
-        # Now, there are still more than one parent of Xj_tau that are in the paths Xi_0 -> Xj_tau, check whether their links to Xj_tau are due to the common driver Xi_0
-        # if len(ppaset) > 1:
+       # if len(ppaset) > 1:
         if len(paseti) > 1:
             for pa in paseti-{node_number_p}:
                 pa_dict = getNodesDict(g, [pa])[0]
@@ -263,17 +376,28 @@ def excludeSpuriousParents(g, data, nodedict, deep=False,
                                            ntest=ntest, sstmethod=sstmethod, kernel=kernel, alpha=alpha,
                                            approach=approach, base=base, returnTrue=returnTrue):
                     print "Exclude the link %s -> %s conditioning on %s." % (pa_dict, nodedict, [nodedict_p])
-                    ppaset.discard(pa)
-                    paseti.discard(pa)
-                    g.remove_edge(pa, node_number)
+                    node_numbers_remove.append(pa)
+                    # ppaset.discard(pa)
+                    # paseti.discard(pa)
+                    # ppaset_dict.remove(pa_dict)
+                    # paseti_dict.remove(pa_dict)
+                    # g.remove_edge(pa, node_number)
+                # Check whether the link to Xj_tau is due to all the parents in paseti
                 elif deep and conditionalIndependence(pa_dict, nodedict, data=data, shuffle_ind=[0],
                                                       conditionset=list(set(paseti_dict)-{pa_dict}),
                                                       ntest=ntest, sstmethod=sstmethod, kernel=kernel, alpha=alpha,
                                                       approach=approach, base=base, returnTrue=returnTrue):
                     print "Exclude the link %s -> %s conditioning on %s." % (pa_dict, nodedict, list(set(paseti_dict)-{pa_dict}))
-                    ppaset.discard(pa)
-                    paseti.discard(pa)
-                    g.remove_edge(pa, node_number)
+                    node_numbers_remove.append(pa)
+                    # ppaset.discard(pa)
+                    # paseti.discard(pa)
+                    # ppaset_dict.remove(pa_dict)
+                    # paseti_dict.remove(pa_dict)
+                    # g.remove_edge(pa, node_number)
+
+    # Remove the nodes in the graph
+    for node_number_start in set(node_numbers_remove):
+        g.remove_edge(node_number_start, node_number)
 
     # Return the graph
     return g, ppaset
