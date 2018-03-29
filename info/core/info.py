@@ -32,10 +32,12 @@ import pandas as pd
 from ..utils.pdf_computer import pdf_computer
 # from scipy.stats import entropy
 
+kde_approaches = ['kde_c', 'kde_cuda', 'kde_cuda_general']
+knn_approaches = ['knn']
 
 class info(object):
 
-    def __init__(self, case, data, approach='kde_c', bandwidth='silverman', kernel='gaussian',
+    def __init__(self, case, data, approach='kde_c', bandwidth='silverman', kernel='gaussian', k=10,
                  base=2, conditioned=False, specific=False, averaged=True, xyindex=None):
         '''
         Input:
@@ -44,6 +46,7 @@ class info(object):
         approach    -- the code for computing PDF by using KDE
         kernel      -- the kernel type [string]
         bandwith    -- the band with of the kernel [string or float]
+        k           -- the number of the nearest neighbor used in KNN method [int]
         base        -- the logrithmatic base (the default is 2) [float/int]
         conditioned -- whether including conditions [bool]
         specific    -- whether calculating the specific PID [bool]
@@ -72,102 +75,93 @@ class info(object):
         self.case = case
         self.data = data
 
-        # Initiate the PDF computer
-        self.computer = pdf_computer(approach=approach, bandwidth=bandwidth, kernel=kernel)
-
-        # Compute the joint PDF
-        _, pdfs   = self.computer.computePDF(data)
-        self.pdfs = pdfs
-
+        # Check xyindex
         ndim = data.shape[1]
-        # 1D
-        if self.case == 1:
-            if xyindex is None:
-                if not conditioned:
-                    self.__computeInfo1D()
-                elif conditioned:
-                    self.__computeInfo1D_conditioned()
-            elif isinstance(xyindex,list):
-                if len(xyindex) == 1 and xyindex[0] <= ndim:
-                    self.xlastind = xyindex[0]
-                    if not conditioned:
-                        # (TODO)
-                        pass
-                    elif conditioned:
-                        # (TODO)
-                        pass
-                else:
-                    raise Exception('xyindex is not correct for 1D case: ' + str(xyindex))
-            else:
-                raise Exception('Unknown type of xyindex %s' % str(type(xyindex)))
+        self.__check_xyindex(xyindex, ndim)
 
+        # Initiate the PDF computer
+        if approach in kde_approaches:
+            self.computer = pdf_computer(approach=approach, bandwidth=bandwidth, kernel=kernel)
+            # 1D
+            if self.case == 1 and not conditioned:
+                self.__computeInfo1D_kde()
+            elif self.case == 1 and conditioned:
+                self.__computeInfo1D_conditioned_kde()
 
-        # 2D
-        if self.case == 2:
-            if xyindex is None:
-                if not conditioned:
-                    self.__computeInfo2D()
-                elif conditioned:
-                    self.__computeInfo2D_conditioned()
-            elif isinstance(xyindex,list):
-                if len(xyindex) == 2 and xyindex[0] < xyindex[1] and xyindex[1] <= ndim:
-                    self.xlastind, self.ylastind = xyindex[0], xyindex[1]
-                    if not conditioned:
-                        # (TODO)
-                        pass
-                    elif conditioned:
-                        self.__computeInfo2D_multivariate_conditioned()
-                else:
-                    raise Exception('xyindex is not correct for 2D case: ' + str(xyindex))
-            else:
-                raise Exception('Unknown type of xyindex %s' % str(type(xyindex)))
+            # 2D
+            if self.case == 2 and not conditioned:
+                self.__computeInfo2D_kde()
+            elif self.case == 2 and conditioned:
+                self.__computeInfo2D_conditioned_kde()
 
-       # 3D
-        if self.case == 3:
-            if xyindex is None:
-                if not conditioned:
-                    self.__computeInfo3D()
-                elif conditioned:
-                    self.__computeInfo3D_conditioned()
-            elif isinstance(xyindex,list):
-                if len(xyindex) == 3 and xyindex[0] < xyindex[1] and xyindex[1] < xyindex[2] and xyindex[2] <= ndim:
-                    self.xlastind, self.ylastind, self.zlastind = xyindex[0], xyindex[1], xyindex[2]
-                    if not conditioned:
-                        # (TODO)
-                        pass
-                    elif conditioned:
-                        # (TODO)
-                        pass
-                        # self.__computeInfo3D_multivariate_conditioned()
-                else:
-                    raise Exception('xyindex is not correct for 3D case: ' + str(xyindex))
-            else:
-                raise Exception('Unknown type of xyindex %s' % str(type(xyindex)))
-        # # 1D
-        # if self.case == 1 and not conditioned:
-        #     self.__computeInfo1D()
-        # elif self.ndim == 1 and conditioned:
-        #     self.__computeInfo1D_conditioned()
+            # 3D
+            if self.case == 3 and not conditioned:
+                self.__computeInfo3D_kde()
+            elif self.case == 3 and conditioned:
+                self.__computeInfo3D_conditioned_kde()
 
-        # # 2D
-        # if self.ndim == 2 and not conditioned:
-        #     self.__computeInfo2D()
-        # elif self.ndim == 2 and conditioned:
-        #     self.__computeInfo2D_conditioned()
+        elif approach in knn_approaches:
+            self.k = k
+            # 1D
+            if self.case == 1 and not conditioned:
+                self.__computeInfo1D_knn()
+            elif self.case == 1 and conditioned:
+                self.__computeInfo1D_conditioned_knn()
 
-        # # 3D
-        # if self.ndim == 3 and not conditioned:
-        #     self.__computeInfo3D()
-        # elif self.ndim == 3 and conditioned:
-        #     self.__computeInfo3D_conditioned()
+            # 2D
+            if self.case == 2 and not conditioned:
+                self.__computeInfo2D_knn()
+            elif self.case == 2 and conditioned:
+                self.__computeInfo2D_conditioned_knn()
+
+            # 3D
+            if self.case == 3 and not conditioned:
+                self.__computeInfo3D_knn()
+            elif self.case == 3 and conditioned:
+                self.__computeInfo3D_conditioned_knn()
 
         # Assemble all the information values into a Pandas series format
         self.__assemble()
 
-        # Delete the PDF to reduce the memory requirement
-        del self.pdfs
+    def __check_xyindex(self, xyindex, ndim):
+        '''Check the xyz indexing.'''
+        # 1D
+        if self.case == 1:
+            if xyindex is None:
+                if conditioned: self.xlastind = 1
+            elif isinstance(xyindex,list):
+                if len(xyindex) == 1 and xyindex[0] <= ndim:
+                    self.xlastind = xyindex[0]
+                else:
+                    raise Exception('xyindex is not correct for 1D case: ' + str(xyindex))
+            else:
+                raise Exception('Unknown type of xyindex %s' % str(type(xyindex)))
+        # 2D
+        elif self.case == 2:
+            if xyindex is None:
+                if not conditioned: self.xlastind = 1
+                elif conditioned:   self.xlastind, self.ylastind = 1, 2
+            elif isinstance(xyindex,list):
+                if len(xyindex) == 2 and xyindex[0] < xyindex[1] and xyindex[1] <= ndim:
+                    self.xlastind, self.ylastind = xyindex[0], xyindex[1]
+                else:
+                    raise Exception('xyindex is not correct for 2D case: ' + str(xyindex))
+            else:
+                raise Exception('Unknown type of xyindex %s' % str(type(xyindex)))
+        # 3D
+        elif self.case == 3:
+            if xyindex is None:
+                if not conditioned: self.xlastind, self.ylastind = 1, 2
+                elif conditioned:   self.xlastind, self.ylastind, self.zlastind = 1, 2, 3
+            elif isinstance(xyindex,list):
+                if len(xyindex) == 3 and xyindex[0] < xyindex[1] and xyindex[1] < xyindex[2] and xyindex[2] <= ndim:
+                    self.xlastind, self.ylastind, self.zlastind = xyindex[0], xyindex[1], xyindex[2]
+                else:
+                    raise Exception('xyindex is not correct for 3D case: ' + str(xyindex))
+            else:
+                raise Exception('Unknown type of xyindex %s' % str(type(xyindex)))
 
-    def __computeInfo1D(self):
+    def __computeInfo1D_kde(self):
         '''
         Compute H(X)
         Input:
@@ -177,12 +171,34 @@ class info(object):
         data     = self.data
         computer = self.computer
         averaged = self.averaged
-        pdfs     = self.pdfs
+
+        # Compute the pdfs
+        _, pdfs   = computer.computePDF(data)
 
         # Compute information metrics
         self.hx = computeEntropy(pdfs, base=base, averaged=averaged)
 
-    def __computeInfo1D_conditioned(self):
+    def __computeInfo1D_knn(self):
+        '''
+        Compute H(X) using KNN method.
+        Input:
+        Output: NoneType
+        '''
+        base       = self.base
+        data       = self.data
+        k          = self.k
+        npts, ndim = data.shape
+
+        # Compute the ball radius of the k nearest neighbor for each data point
+        radiusset = 0; # TODO
+
+        # Note that the number of nearest neighbors with ball radius radiusset is always k in the joint dataset
+        kset = k*np.ones(npts)
+
+        # Compute information metrics
+        self.hx = computeEntropyKNN(npts, ndim, kset, epsilonset, base)
+
+    def __computeInfo1D_conditioned_kde(self):
         '''
         Compute H(X|W)
         '''
@@ -190,11 +206,16 @@ class info(object):
         data     = self.data
         computer = self.computer
         averaged = self.averaged
-        pdfs     = self.pdfs
+        npts, ndim = data.shape
+
+        xlastind = self.xlastind
 
         # Compute the pdfs
-        _, xpdfs = computer.computePDF(data[:,[0]])
-        _, wpdfs = computer.computePDF(data[:,1:])
+        _, pdfs  = computer.computePDF(data)
+        _, xpdfs = computer.computePDF(data[:,range(0,xlastind)])
+        _, wpdfs = computer.computePDF(data[:,range(xlastind,ndim)])
+        # _, xpdfs = computer.computePDF(data[:,[0]])
+        # _, wpdfs = computer.computePDF(data[:,1:])
 
         # Compute all the entropies
         self.hw    = computeEntropy(wpdfs, base=base, averaged=averaged)    # H(W)
@@ -202,7 +223,7 @@ class info(object):
         self.hxw   = computeEntropy(pdfs, base=base, averaged=averaged)     # H(X,W)
         self.hx_w  = self.hxw - self.hw                                     # H(X|W)
 
-    def __computeInfo2D(self):
+    def __computeInfo2D_kde(self):
         '''
         Compute H(X), H(Y), H(X|Y), H(Y|X), I(X;Y)
         Input:
@@ -213,11 +234,16 @@ class info(object):
         data     = self.data
         computer = self.computer
         averaged = self.averaged
-        pdfs     = self.pdfs
+        npts, ndim = data.shape
+
+        xlastind = self.xlastind
 
         # Compute the pdfs
-        _, xpdfs = computer.computePDF(data[:,[0]])
-        _, ypdfs = computer.computePDF(data[:,[1]])
+        _, pdfs  = computer.computePDF(data)
+        _, xpdfs = computer.computePDF(data[:,range(0,xlastind)])
+        _, ypdfs = computer.computePDF(data[:,range(xlastind,ndim)])
+        # _, xpdfs = computer.computePDF(data[:,[0]])
+        # _, ypdfs = computer.computePDF(data[:,[1]])
 
         # Compute H(X), H(Y) and H(X,Y)
         # print xpdfs
@@ -228,7 +254,7 @@ class info(object):
         self.hx_y = self.hxy - self.hy                                  # H(X|Y)
         self.ixy  = self.hx + self.hy - self.hxy                        # I(X;Y)
 
-    def __computeInfo2D_conditioned(self):
+    def __computeInfo2D_conditioned_kde(self):
         '''
         Compute H(X|W), H(Y|W), H(X,Y|W), I(X,Y|W)
         '''
@@ -237,54 +263,23 @@ class info(object):
         computer   = self.computer
         averaged   = self.averaged
         npts, ndim = data.shape
-        pdfs       = self.pdfs
-
-        # Compute the pdfs
-        _, xpdfs  = computer.computePDF(data[:,[0]])
-        _, ypdfs  = computer.computePDF(data[:,[1]])
-        _, wpdfs  = computer.computePDF(data[:,2:])
-        _, xypdfs = computer.computePDF(data[:,[0,1]])
-        _, xwpdfs = computer.computePDF(data[:,[0]+range(2,ndim)])
-        _, ywpdfs = computer.computePDF(data[:,[1]+range(2,ndim)])
-
-        # Compute all the entropies
-        self.hw    = computeEntropy(wpdfs, base=base, averaged=averaged)    # h(w)
-        self.hx    = computeEntropy(xpdfs, base=base, averaged=averaged)    # h(x)
-        self.hy    = computeEntropy(ypdfs, base=base, averaged=averaged)    # h(y)
-        self.hxy   = computeEntropy(xypdfs, base=base, averaged=averaged)   # h(x,y)
-        self.hxw   = computeEntropy(xwpdfs, base=base, averaged=averaged)   # h(x,w)
-        self.hyw   = computeEntropy(ywpdfs, base=base, averaged=averaged)   # h(y,w)
-        self.hxyw  = computeEntropy(pdfs, base=base, averaged=averaged)     # h(x,y,w)
-        self.hx_w  = self.hxw - self.hw                                     # h(x|w)
-        self.hy_w  = self.hyw - self.hw                                     # h(y|w)
-        self.hx_y  = self.hxy - self.hy                                     # h(x|y)
-        self.hy_x  = self.hxy - self.hx                                     # h(y|x)
-
-        # Compute all the conditional mutual information
-        self.ixy   = self.hx + self.hy - self.hxy                           # I(X;Y)
-        self.ixy_w = self.hxw + self.hyw - self.hw - self.hxyw              # I(X;Y|W)
-
-    def __computeInfo2D_multivariate_conditioned(self):
-        '''
-        Compute H(Xset|W), H(Yset|W), H(Xset,Yset|W), I(Xset,Yset|W)
-        used for computing the accumulated information transfer (AIT)
-        '''
-        base       = self.base
-        data       = self.data
-        computer   = self.computer
-        averaged   = self.averaged
-        npts, ndim = data.shape
-        pdfs     = self.pdfs
 
         xlastind, ylastind = self.xlastind, self.ylastind
 
         # Compute the pdfs
+        _, pdfs  = computer.computePDF(data)
         _, xpdfs  = computer.computePDF(data[:,range(0,xlastind)])
         _, ypdfs  = computer.computePDF(data[:,range(xlastind,ylastind)])
         _, wpdfs  = computer.computePDF(data[:,range(ylastind,ndim)])
         _, xypdfs = computer.computePDF(data[:,range(0,ylastind)])
         _, xwpdfs = computer.computePDF(data[:,range(0,xlastind)+range(ylastind,ndim)])
         _, ywpdfs = computer.computePDF(data[:,range(xlastind,ndim)])
+        # _, xpdfs  = computer.computePDF(data[:,[0]])
+        # _, ypdfs  = computer.computePDF(data[:,[1]])
+        # _, wpdfs  = computer.computePDF(data[:,2:])
+        # _, xypdfs = computer.computePDF(data[:,[0,1]])
+        # _, xwpdfs = computer.computePDF(data[:,[0]+range(2,ndim)])
+        # _, ywpdfs = computer.computePDF(data[:,[1]+range(2,ndim)])
 
         # Compute all the entropies
         self.hw    = computeEntropy(wpdfs, base=base, averaged=averaged)    # h(w)
@@ -303,7 +298,8 @@ class info(object):
         self.ixy   = self.hx + self.hy - self.hxy                           # I(X;Y)
         self.ixy_w = self.hxw + self.hyw - self.hw - self.hxyw              # I(X;Y|W)
 
-    def __computeInfo3D(self):
+
+    def __computeInfo3D_kde(self):
         '''
         Compute H(X), H(Y), H(Z), I(Y;Z), I(X;Z), I(X;Y), I(Y,Z|X), I(X,Z|Y), II,
                 I(X,Y;Z), R, S, U1, U2
@@ -317,15 +313,23 @@ class info(object):
         computer   = self.computer
         averaged   = self.averaged
         npts, ndim = data.shape
-        pdfs       = self.pdfs
+
+        xlastind, ylastind = self.xlastind, self.ylastind
 
         # Compute the pdfs
-        _, xpdfs  = computer.computePDF(data[:,[0]])
-        _, ypdfs  = computer.computePDF(data[:,[1]])
-        _, zpdfs  = computer.computePDF(data[:,[2]])
-        _, xypdfs = computer.computePDF(data[:,[0,1]])
-        _, xzpdfs = computer.computePDF(data[:,[0,2]])
-        _, yzpdfs = computer.computePDF(data[:,[1,2]])
+        _, pdfs  = computer.computePDF(data)
+        _, xpdfs  = computer.computePDF(data[:,range(0,xlastind)])
+        _, ypdfs  = computer.computePDF(data[:,range(xlastind,ylastind)])
+        _, zpdfs  = computer.computePDF(data[:,range(ylastind,ndim)])
+        _, xypdfs = computer.computePDF(data[:,range(0,ylastind)])
+        _, xzpdfs = computer.computePDF(data[:,range(0,xlastind)+range(ylastind,ndim)])
+        _, yzpdfs = computer.computePDF(data[:,range(xlastind,ndim)])
+        # _, xpdfs  = computer.computePDF(data[:,[0]])
+        # _, ypdfs  = computer.computePDF(data[:,[1]])
+        # _, zpdfs  = computer.computePDF(data[:,[2]])
+        # _, xypdfs = computer.computePDF(data[:,[0,1]])
+        # _, xzpdfs = computer.computePDF(data[:,[0,2]])
+        # _, yzpdfs = computer.computePDF(data[:,[1,2]])
 
         # Compute H(X), H(Y) and H(Z)
         self.hx   = computeEntropy(xpdfs, base=base, averaged=averaged)   # H(X)
@@ -357,7 +361,7 @@ class info(object):
         self.uxz = self.ixz - self.r  # U(X;Z) (Eq.(4) in Allison)
         self.uyz = self.iyz - self.r  # U(Y;Z) (Eq.(5) in Allison)
 
-    def __computeInfo3D_conditioned(self):
+    def __computeInfo3D_conditioned_kde(self):
         '''
         The function is aimed to compute the momentary interaction information at two paths and
         its corresponding momentary inforamtion partitioning.
@@ -379,22 +383,37 @@ class info(object):
         computer   = self.computer
         averaged   = self.averaged
         npts, ndim = data.shape
-        pdfs       = self.pdfs
+
+        xlastind, ylastind, zlastind = self.xlastind, self.ylastind, self.zlastind
 
         # Compute the pdfs
-        _, xpdfs   = computer.computePDF(data[:,[0]])
-        _, ypdfs   = computer.computePDF(data[:,[1]])
-        _, zpdfs   = computer.computePDF(data[:,[2]])
-        _, wpdfs   = computer.computePDF(data[:,3:])
-        _, xypdfs  = computer.computePDF(data[:,[0,1]])
-        _, xzpdfs  = computer.computePDF(data[:,[0,2]])
-        _, yzpdfs  = computer.computePDF(data[:,[1,2]])
-        _, xwpdfs  = computer.computePDF(data[:,[0]+range(3,ndim)])
-        _, ywpdfs  = computer.computePDF(data[:,[1]+range(3,ndim)])
-        _, zwpdfs  = computer.computePDF(data[:,[2]+range(3,ndim)])
-        _, xywpdfs = computer.computePDF(data[:,[0,1]+range(3,ndim)])
-        _, yzwpdfs = computer.computePDF(data[:,[1,2]+range(3,ndim)])
-        _, xzwpdfs = computer.computePDF(data[:,[0,2]+range(3,ndim)])
+        _, pdfs  = computer.computePDF(data)
+        _, xpdfs  = computer.computePDF(data[:,range(0,xlastind)])
+        _, ypdfs  = computer.computePDF(data[:,range(xlastind,ylastind)])
+        _, zpdfs  = computer.computePDF(data[:,range(ylastind,zlastind)])
+        _, wpdfs  = computer.computePDF(data[:,range(zlastind,ndim)])
+        _, xypdfs = computer.computePDF(data[:,range(0,ylastind)])
+        _, xzpdfs = computer.computePDF(data[:,range(0,xlastind)+range(ylastind,zlastind)])
+        _, yzpdfs = computer.computePDF(data[:,range(xlastind,zlastind)])
+        _, xwpdfs  = computer.computePDF(data[:,range(0,xlastind)+range(zlastind,ndim)])
+        _, ywpdfs  = computer.computePDF(data[:,range(xlastind,ylastind)+range(zlastind,ndim)])
+        _, zwpdfs  = computer.computePDF(data[:,range(ylastind,ndim)])
+        _, xywpdfs = computer.computePDF(data[:,range(0,ylastind)+range(zlastind,ndim)])
+        _, yzwpdfs = computer.computePDF(data[:,range(ylastind,ndim)])
+        _, xzwpdfs = computer.computePDF(data[:,range(0,xlastind)+range(ylastind,ndim)])
+        # _, xpdfs   = computer.computePDF(data[:,[0]])
+        # _, ypdfs   = computer.computePDF(data[:,[1]])
+        # _, zpdfs   = computer.computePDF(data[:,[2]])
+        # _, wpdfs   = computer.computePDF(data[:,3:])
+        # _, xypdfs  = computer.computePDF(data[:,[0,1]])
+        # _, xzpdfs  = computer.computePDF(data[:,[0,2]])
+        # _, yzpdfs  = computer.computePDF(data[:,[1,2]])
+        # _, xwpdfs  = computer.computePDF(data[:,[0]+range(3,ndim)])
+        # _, ywpdfs  = computer.computePDF(data[:,[1]+range(3,ndim)])
+        # _, zwpdfs  = computer.computePDF(data[:,[2]+range(3,ndim)])
+        # _, xywpdfs = computer.computePDF(data[:,[0,1]+range(3,ndim)])
+        # _, yzwpdfs = computer.computePDF(data[:,[1,2]+range(3,ndim)])
+        # _, xzwpdfs = computer.computePDF(data[:,[0,2]+range(3,ndim)])
 
         # Compute all the entropies
         self.hw    = computeEntropy(wpdfs, base=base, averaged=averaged)    # H(W)
@@ -443,6 +462,45 @@ class info(object):
         self.s = self.r + self.ii                                           # Sc
         self.uxz = self.ixz_w - self.r                                      # U(X;Z|W)
         self.uyz = self.iyz_w - self.r                                      # U(Y;Z|W)
+
+    # def __computeInfo2D_multivariate_conditioned(self):
+    #     '''
+    #     Compute H(Xset|W), H(Yset|W), H(Xset,Yset|W), I(Xset,Yset|W)
+    #     used for computing the accumulated information transfer (AIT)
+    #     '''
+    #     base       = self.base
+    #     data       = self.data
+    #     computer   = self.computer
+    #     averaged   = self.averaged
+    #     npts, ndim = data.shape
+    #     pdfs     = self.pdfs
+
+    #     xlastind, ylastind = self.xlastind, self.ylastind
+
+    #     # Compute the pdfs
+    #     _, xpdfs  = computer.computepdf(data[:,range(0,xlastind)])
+    #     _, ypdfs  = computer.computepdf(data[:,range(xlastind,ylastind)])
+    #     _, wpdfs  = computer.computepdf(data[:,range(ylastind,ndim)])
+    #     _, xypdfs = computer.computepdf(data[:,range(0,ylastind)])
+    #     _, xwpdfs = computer.computepdf(data[:,range(0,xlastind)+range(ylastind,ndim)])
+    #     _, ywpdfs = computer.computepdf(data[:,range(xlastind,ndim)])
+
+    #     # compute all the entropies
+    #     self.hw    = computeEntropy(wpdfs, base=base, averaged=averaged)    # h(w)
+    #     self.hx    = computeEntropy(xpdfs, base=base, averaged=averaged)    # h(x)
+    #     self.hy    = computeEntropy(ypdfs, base=base, averaged=averaged)    # h(y)
+    #     self.hxy   = computeEntropy(xypdfs, base=base, averaged=averaged)   # h(x,y)
+    #     self.hxw   = computeEntropy(xwpdfs, base=base, averaged=averaged)   # h(x,w)
+    #     self.hyw   = computeEntropy(ywpdfs, base=base, averaged=averaged)   # h(y,w)
+    #     self.hxyw  = computeEntropy(pdfs, base=base, averaged=averaged)     # h(x,y,w)
+    #     self.hx_w  = self.hxw - self.hw                                     # h(x|w)
+    #     self.hy_w  = self.hyw - self.hw                                     # h(y|w)
+    #     self.hx_y  = self.hxy - self.hy                                     # h(x|y)
+    #     self.hy_x  = self.hxy - self.hx                                     # h(y|x)
+
+    #     # Compute all the conditional mutual information
+    #     self.ixy   = self.hx + self.hy - self.hxy                           # I(X;Y)
+    #     self.ixy_w = self.hxw + self.hyw - self.hw - self.hxyw              # I(X;Y|W)
 
     # def computeInfo2D_multiple_conditioned(self, xlastind, ylastind):
     #     '''
@@ -720,6 +778,33 @@ def computeEntropy(pdfs, base=2, averaged=True):
     elif not averaged:
         return -np.sum(pdfs*pdfs_log)
 
+def computeEntropyKNN(npts, ndim, kset, radiusset, base=2):
+    '''
+    Compute the entropy based on the k-nearest-neighbor method.
+    Inputs:
+    npts      -- the number of datapoints [int]
+    ndim      -- the number of dimension [int]
+    kset      -- the number of nearest neighbors for each data points within radiusset [a numpy array with shape (npts,)]
+    radiusset -- the ball radius for each data points [a numpy array with shape (npts,)]
+    base      -- the logrithmatic base (the default is 2) [float/int]
+    Output:
+    entropy [float]
+    '''
+    from scipy.special import digamma
+
+    # Compute the volumn of ndim dimension (maximum norm)
+    vdx = 2.**ndim
+
+    # Compute the radius term
+    # pdfs_log  = np.ma.log(pdfs)
+    # pdfs_log  = pdfs_log.filled(0) / np.log(base)
+    rd = np.mean(np.log(radiusset) / np.log(base))*ndim
+
+    # Compute the k-digamma term
+    kd = np.mean(digamma(kset))
+
+    # Compute the entropy
+    return digamma(npts) - kd + rd + vdx
 
 def computeConditionalInfo(xpdfs, ypdfs, xypdfs, base=2):
     '''
