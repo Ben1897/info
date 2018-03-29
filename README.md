@@ -16,11 +16,11 @@ cd [info_folder]/info/info/utils/
 make clean; make
 ```
 5. Generate the dynamic libraries for the K-Nearest Neighbor (KNN) GPU by:
-...* Download the [Fast K-Nearest Neighbor search with GPU](https://github.com/chrischoy/knn_cuda).
-...* Specify `PYTHON_INCLUDE`, `PYTHON_LIB`, `CUDA_DIR` correctly in the `Makefile.config`.
-...* Install [Boost](http://www.boost.org/) to enable the connection between C++ and Python code.
-...* Type `make` to generate the `knn.so` dynamic library.
-...* Copy `knn.so` to the utility folder by typing:
+    - Download the [Fast K-Nearest Neighbor search with GPU](https://github.com/chrischoy/knn_cuda).
+    - Specify `PYTHON_INCLUDE`, `PYTHON_LIB`, `CUDA_DIR` correctly in the `Makefile.config`.
+    - Install [Boost](http://www.boost.org/) to enable the connection between C++ and Python code.
+    - Type `make` to generate the `knn.so` dynamic library.
+    - Copy `knn.so` to the utility folder by typing:
 ```
 cp [knn-folder]/knn.so [info-folder]/info/info/utils/
 ```
