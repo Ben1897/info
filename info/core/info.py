@@ -30,10 +30,11 @@ Allison's SUR paper
 import numpy as np
 import pandas as pd
 from ..utils.pdf_computer import pdf_computer
+from ..utils.knntoolkit import knn_cuda, knn_scipy
 # from scipy.stats import entropy
 
 kde_approaches = ['kde_c', 'kde_cuda', 'kde_cuda_general']
-knn_approaches = ['knn']
+knn_approaches = ['knn_cuda', 'knn_scipy']
 
 class info(object):
 
@@ -101,6 +102,7 @@ class info(object):
                 self.__computeInfo3D_conditioned_kde()
 
         elif approach in knn_approaches:
+            knn = knn_cuda if approach is 'knn_cuda' else knn_scipy
             self.k = k
             # 1D
             if self.case == 1 and not conditioned:
@@ -190,13 +192,14 @@ class info(object):
         npts, ndim = data.shape
 
         # Compute the ball radius of the k nearest neighbor for each data point
-        radiusset = 0; # TODO
+        dist, _ = knn(querypts=data, refpts=data, k=k)
+        radiusset = dist[:, -1]
 
         # Note that the number of nearest neighbors with ball radius radiusset is always k in the joint dataset
         kset = k*np.ones(npts)
 
         # Compute information metrics
-        self.hx = computeEntropyKNN(npts, ndim, kset, epsilonset, base)
+        self.hx = computeEntropyKNN(npts, ndim, kset, radiusset, base)
 
     def __computeInfo1D_conditioned_kde(self):
         '''
@@ -214,8 +217,6 @@ class info(object):
         _, pdfs  = computer.computePDF(data)
         _, xpdfs = computer.computePDF(data[:,range(0,xlastind)])
         _, wpdfs = computer.computePDF(data[:,range(xlastind,ndim)])
-        # _, xpdfs = computer.computePDF(data[:,[0]])
-        # _, wpdfs = computer.computePDF(data[:,1:])
 
         # Compute all the entropies
         self.hw    = computeEntropy(wpdfs, base=base, averaged=averaged)    # H(W)
@@ -223,7 +224,73 @@ class info(object):
         self.hxw   = computeEntropy(pdfs, base=base, averaged=averaged)     # H(X,W)
         self.hx_w  = self.hxw - self.hw                                     # H(X|W)
 
-    def __computeInfo2D_kde(self):
+    def __computeInfo1D_conditioned_knn(self):
+        '''
+        Compute H(X|W) using KNN method
+        '''
+        base     = self.base
+        data     = self.data
+        computer = self.computer
+        averaged = self.averaged
+        k         = self.k
+        npts, ndim = data.shape
+
+        xlastind = self.xlastind
+
+        # The dimensions for X and W
+        xndim, wndim = xlastind, ndim-xlastind
+
+        # Get the conditioned data set
+        xdata = data[:,range(0,xlastind)]
+        wdata = data[:,range(xlastind,ndim)]
+
+        # Compute the ball radius of the k nearest neighbor for each data point
+        dist, _ = knn(querypts=data, refpts=data, k=k)
+        rset = dist[:, -1][:, np.newaxis]
+
+        # Get the number of nearest neighbors for X and W based on the ball radius
+        distw, _ = knn(querypts=wdata, refpts=wdata, k=npts)
+        distx, _ = knn(querypts=xdata, refpts=xdata, k=npts)
+        kwset    = np.sum(distw < rset, axis=1)
+        kxset    = np.sum(distx < rset, axis=1)
+
+        # Note that the number of nearest neighbors with ball radius rset for XW is always k in the joint dataset
+        kset = k*np.ones(npts)
+
+        # Compute information metrics
+        self.hxw  = computeEntropyKNN(npts, ndim, kset, rset, base)
+        self.hw   = computeEntropyKNN(npts, wndim, kwset, rset, base)
+        self.hx   = computeEntropyKNN(npts, xndim, kxset, rset, base)
+        self.hx_w = self.hxw - self.hw
+
+   def __computeInfo2D_kde(self):
+        '''
+        Compute H(X), H(Y), H(X|Y), H(Y|X), I(X;Y) using KNN method
+        '''
+        base     = self.base
+        data     = self.data
+        computer = self.computer
+        averaged = self.averaged
+        k        = self.k
+        npts, ndim = data.shape
+
+        xlastind = self.xlastind
+
+        # Compute the pdfs
+        _, pdfs  = computer.computePDF(data)
+        _, xpdfs = computer.computePDF(data[:,range(0,xlastind)])
+        _, ypdfs = computer.computePDF(data[:,range(xlastind,ndim)])
+
+        # Compute H(X), H(Y) and H(X,Y)
+        # print xpdfs
+        self.hx  = computeEntropy(xpdfs, base=base, averaged=averaged)  # H(X)
+        self.hy  = computeEntropy(ypdfs, base=base, averaged=averaged)  # H(Y)
+        self.hxy = computeEntropy(pdfs, base=base, averaged=averaged)   # H(X,Y)
+        self.hy_x = self.hxy - self.hx                                  # H(Y|X)
+        self.hx_y = self.hxy - self.hy                                  # H(X|Y)
+        self.ixy  = self.hx + self.hy - self.hxy                        # I(X;Y)
+
+   def __computeInfo2D_knn(self):
         '''
         Compute H(X), H(Y), H(X|Y), H(Y|X), I(X;Y)
         Input:
@@ -238,20 +305,32 @@ class info(object):
 
         xlastind = self.xlastind
 
-        # Compute the pdfs
-        _, pdfs  = computer.computePDF(data)
-        _, xpdfs = computer.computePDF(data[:,range(0,xlastind)])
-        _, ypdfs = computer.computePDF(data[:,range(xlastind,ndim)])
-        # _, xpdfs = computer.computePDF(data[:,[0]])
-        # _, ypdfs = computer.computePDF(data[:,[1]])
+        # The dimensions for X and Y
+        xndim, yndim = xlastind, ndim-xlastind
 
-        # Compute H(X), H(Y) and H(X,Y)
-        # print xpdfs
-        self.hx  = computeEntropy(xpdfs, base=base, averaged=averaged)  # H(X)
-        self.hy  = computeEntropy(ypdfs, base=base, averaged=averaged)  # H(Y)
-        self.hxy = computeEntropy(pdfs, base=base, averaged=averaged)   # H(X,Y)
-        self.hy_x = self.hxy - self.hx                                  # H(Y|X)
-        self.hx_y = self.hxy - self.hy                                  # H(X|Y)
+        # Get the conditioned data set
+        xdata = data[:,range(0,xlastind)]
+        ydata = data[:,range(xlastind,ndim)]
+
+        # Compute the ball radius of the k nearest neighbor for each data point
+        dist, _ = knn(querypts=data, refpts=data, k=k)
+        rset    = dist[:, -1][:, np.newaxis]
+
+        # Get the number of nearest neighbors for X and Y based on the ball radius
+        disty, _ = knn(querypts=ydata, refpts=ydata, k=npts)
+        distx, _ = knn(querypts=xdata, refpts=xdata, k=npts)
+        kyset    = np.sum(disty < rset, axis=1)
+        kxset    = np.sum(distx < rset, axis=1)
+
+        # Note that the number of nearest neighbors with ball radius rset for XW is always k in the joint dataset
+        kset = k*np.ones(npts)
+
+        # Compute information metrics
+        self.hxy  = computeEntropyKNN(npts, ndim, kset, rset, base)
+        self.hy   = computeEntropyKNN(npts, yndim, kyset, rset, base)
+        self.hx   = computeEntropyKNN(npts, xndim, kxset, rset, base)
+        self.hx_y = self.hxy - self.hy
+        self.hy_x = self.hxy - self.hx
         self.ixy  = self.hx + self.hy - self.hxy                        # I(X;Y)
 
     def __computeInfo2D_conditioned_kde(self):
@@ -274,12 +353,6 @@ class info(object):
         _, xypdfs = computer.computePDF(data[:,range(0,ylastind)])
         _, xwpdfs = computer.computePDF(data[:,range(0,xlastind)+range(ylastind,ndim)])
         _, ywpdfs = computer.computePDF(data[:,range(xlastind,ndim)])
-        # _, xpdfs  = computer.computePDF(data[:,[0]])
-        # _, ypdfs  = computer.computePDF(data[:,[1]])
-        # _, wpdfs  = computer.computePDF(data[:,2:])
-        # _, xypdfs = computer.computePDF(data[:,[0,1]])
-        # _, xwpdfs = computer.computePDF(data[:,[0]+range(2,ndim)])
-        # _, ywpdfs = computer.computePDF(data[:,[1]+range(2,ndim)])
 
         # Compute all the entropies
         self.hw    = computeEntropy(wpdfs, base=base, averaged=averaged)    # h(w)
@@ -298,6 +371,48 @@ class info(object):
         self.ixy   = self.hx + self.hy - self.hxy                           # I(X;Y)
         self.ixy_w = self.hxw + self.hyw - self.hw - self.hxyw              # I(X;Y|W)
 
+    def __computeInfo2D_conditioned_knn(self):
+        '''
+        Compute H(X|W), H(Y|W), H(X,Y|W), I(X,Y|W) using KNN method
+        '''
+        base       = self.base
+        data       = self.data
+        computer   = self.computer
+        averaged   = self.averaged
+        k          = self.k
+        npts, ndim = data.shape
+
+        xlastind, ylastind = self.xlastind, self.ylastind
+
+        # The dimensions for X, Y and W
+        xndim, yndim, wndim= xlastind, ylastind-xlastind, ndim-ylastind
+
+        # Get the conditioned data set
+        wdata  = data[:,range(xlastind,ndim)]
+        xwdata = data[:,range(0,xlastind)+range(ylastind,ndim)]
+        ywdata = data[:,range(xlastind,ndim)]
+
+        # Compute the ball radius of the k nearest neighbor for each data point
+        dist, _ = knn(querypts=data, refpts=data, k=k)
+        rset    = dist[:, -1][:, np.newaxis]
+
+        # Get the number of nearest neighbors for X and Y based on the ball radius
+        distyw, _ = knn(querypts=ywdata, refpts=ywdata, k=npts)
+        distxw, _ = knn(querypts=xwdata, refpts=xwdata, k=npts)
+        distw, _  = knn(querypts=wdata, refpts=wdata, k=npts)
+        kywset    = np.sum(distyw < rset, axis=1)
+        kxwset    = np.sum(distxw < rset, axis=1)
+        kwset     = np.sum(distw < rset, axis=1)
+
+        # Note that the number of nearest neighbors with ball radius rset for XW is always k in the joint dataset
+        kset = k*np.ones(npts)
+
+        # Compute information metrics
+        self.hw   = computeEntropyKNN(npts, wndim, kwset, rset, base)
+        self.hxw  = computeEntropyKNN(npts, xndim+wndim, kxwset, rset, base)
+        self.hyw  = computeEntropyKNN(npts, yndim+wndim, kywset, rset, base)
+        self.hxyw = computeEntropyKNN(npts, ndim, kset, rset, base)
+        self.ixy_w = self.hxw + self.hyw - self.hw - self.hxyw              # I(X;Y|W)
 
     def __computeInfo3D_kde(self):
         '''
