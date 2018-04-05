@@ -1073,13 +1073,11 @@ def computeCMI(data, approach='kde_c', bandwidth='silverman', kernel='gaussian',
     return np.sum((pdfs_log - xpdfs_log - ypdfs_log)*pdfsn)
 
 
-def computeMIKNN(data, k=2, base=2, xyindex=[1]):
+def computeMIKNN(data, k=2, xyindex=[1]):
     '''
     Compute the conditional mutual information I(X;Y|Z) based on the original formula (not the average version).
     Input:
     data        -- the data [numpy array with shape (npoints, ndim)]
-    approach    -- the code for computing PDF by using KDE
-    base        -- the logrithmatic base (the default is 2) [float/int]
     xyindex     -- a list of index indicating the position of the involved variable set, used for computeInfo*D_multivariate*
                     1D: [xlastind], 2D: [xlastind, ylastind], 3D: [xlastind,ylastind,zlastind]
                     note that xlastind < ylastind < zlastind <= len(pdfs.shape)
@@ -1110,13 +1108,11 @@ def computeMIKNN(data, k=2, base=2, xyindex=[1]):
     return digamma(npts) + digamma(k) - np.mean(digamma(kyset)) - np.mean(digamma(kxset))
 
 
-def computeCMIKNN(data, k=2, base=2, xyindex=[1,2]):
+def computeCMIKNN(data, k=2, xyindex=[1,2]):
     '''
     Compute the conditional mutual information I(X;Y|Z) based on the original formula (not the average version).
     Input:
     data        -- the data [numpy array with shape (npoints, ndim)]
-    approach    -- the code for computing PDF by using KDE
-    base        -- the logrithmatic base (the default is 2) [float/int]
     xyindex     -- a list of index indicating the position of the involved variable set, used for computeInfo*D_multivariate*
                     1D: [xlastind], 2D: [xlastind, ylastind], 3D: [xlastind,ylastind,zlastind]
                     note that xlastind < ylastind < zlastind <= len(pdfs.shape)

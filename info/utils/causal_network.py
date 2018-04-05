@@ -388,16 +388,16 @@ class causal_network(object):
 
         return w
 
-    def search_ait_components(self, sources, target, sidepath=False, verbosity=1):
+    def search_cit_components(self, sources, target, sidepath=False, verbosity=1):
         """
-        Find the elements for calculating the accumulated information transfer (AIT) from sources to the target.
+        Find the elements for calculating the cumulative information transfer (CIT) from sources to the target.
 
         Input:
         sources  -- the source nodes [list of sets (var_index, lag)]
         target   -- the target node [set (var_index, lag)]
         sidepath --  whether including the contemporaneous sidepaths [bool]
         Output:
-        the elements for AIT [list of sets]
+        the elements for CIT [list of sets]
 
         """
         g, nvar = self.g, self.nvar
