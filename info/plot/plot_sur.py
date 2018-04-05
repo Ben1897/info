@@ -306,7 +306,7 @@ def plot_pid(xv, yv, iic, rp, sp, uxp, uyp, xlabel, ylabel, zlabel='$[nats]$',
     extent = [xv.min(), xv.max(), yv.max(), yv.min()]
 
     if vertical:
-        plt.figure(figsize=(18, 30))
+        plt.figure(figsize=(18, 32))
         gs = gridspec.GridSpec(5, 1)
         gs.update(wspace=.1, hspace=.2)
     else:
