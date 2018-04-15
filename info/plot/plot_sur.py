@@ -343,9 +343,11 @@ def plot_pid(xv, yv, iic, rp, sp, uxp, uyp, xlabel, ylabel, zlabel='$[nats]$',
         ax.zaxis.set_rotate_label(False)  # disable automatic rotation
         ax.set_zlabel(zlabel, labelpad=labelpad, rotation=90)
     if option == 'MPID':
-        ax.set_title(r'$MII-SCP$ %s' % proptext)
+        # ax.set_title(r'$MII-SCP$ %s' % proptext)
+        ax.set_title(r'$MIISCP$ %s' % proptext)
     elif option == 'II':
-        ax.set_title(r'$II$ %s' % proptext)
+        # ax.set_title(r'$II$ %s' % proptext)
+        ax.set_title(r'$\mathcal{I}$ %s' % proptext)
 
     # Redundant information
     ax = plt.subplot(gs[1], projection='3d')
