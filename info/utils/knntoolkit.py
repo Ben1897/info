@@ -7,7 +7,10 @@
 import numpy as np
 from sklearn.neighbors import KDTree, BallTree, DistanceMetric
 from scipy.spatial import cKDTree
-import knn
+try:
+    import knn
+except:
+    print "The CUDA-KNN is not installed!."
 
 def knn_scipy(querypts, refpts, k, approach='kdtree'):
     """KNN implementation based on scipy.
