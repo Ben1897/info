@@ -9,7 +9,7 @@ This script is used for creating a causal network, which is able to:
 
 Ref:
 Runge PRE (2015)
-Jiang and Kumar PRE, under review (2017)
+Jiang and Kumar PRE (2018)
 
 class causal_network()
     __init__()
@@ -411,9 +411,13 @@ class causal_network(object):
         # Check whether the two sources are linked with the target through causal paths
         for source in sources:
             linktype = self.check_links(source, target, verbosity=verbosity)
-        if linktype not in ['causalpath', 'directed']:
-            if verbosity == 1:
-                print "The source %s and the target %s are not linked by a causal path" % (source, target)
+            if linktype not in ['causalpath', 'directed']:
+                if verbosity == 1:
+                    print "The source %s and the target %s are not linked by a causal path" % (source, target)
+                # return []
+                # remove that source
+                sources.remove(source)
+        if len(sources) == 0:
             return []
 
         # Get the node number

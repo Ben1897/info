@@ -17,6 +17,7 @@ reorganize_data()
 """
 
 import numpy as np
+import pandas as pd
 import scipy.io as sio
 import datetime as dt
 from scipy.signal import butter, lfilter
@@ -206,6 +207,23 @@ def reorganize_data(data, w):
             redata[:, i] = data[lag:-maxlag+lag, var]
 
     return redata
+
+
+def dropna(data):
+    """
+    Exclude the datapoint at a time step if it contains at least one nan.
+    Input:
+    data -- the original data [ndarray with shape(npts1, ndim)]
+    Output:
+    redata -- the filtered data [ndarray with shape(npts2, len(w))]
+    """
+    # Assemble data into a pandas framework
+    df = pd.DataFrame(data)
+
+    # Drop nan
+    dfnew = df.dropna(axis=0, how='any')
+
+    return dfnew.values
 
 if __name__ == '__main__':
     # Test reorganize_data
