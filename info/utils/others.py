@@ -81,7 +81,15 @@ def normalize(data):
     """
     npts, ndim = data.shape
 
-    mean, std = np.mean(data, axis=0), np.std(data, axis=0)
+    try:
+        isnan = data.isnull().any().any()  # for pandas dataframe
+    except:
+        isnan = np.isnan(data).any()       # for numpy array
+
+    if isnan:
+        mean, std = np.nanmean(data, axis=0), np.nanstd(data, axis=0)
+    else:
+        mean, std = np.mean(data, axis=0), np.std(data, axis=0)
 
     return (data - mean) / std
 
@@ -209,7 +217,7 @@ def reorganize_data(data, w):
     return redata
 
 
-def dropna(data):
+def dropna(data, unique=False):
     """
     Exclude the datapoint at a time step if it contains at least one nan.
     Input:
@@ -222,6 +230,13 @@ def dropna(data):
 
     # Drop nan
     dfnew = df.dropna(axis=0, how='any')
+
+    # Get the unique values
+    if unique:
+        # print dfnew.shape
+        # print dfnew.drop_duplicates().shape
+        # print np.unique(dfnew.values, axis = 0).shape
+        return np.unique(dfnew.values, axis = 0)
 
     return dfnew.values
 

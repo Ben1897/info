@@ -36,12 +36,12 @@ from ..utils.knntoolkit import knn_cuda, knn_scipy, knn_sklearn
 # from scipy.stats import entropy
 
 kde_approaches = ['kde_c', 'kde_cuda', 'kde_cuda_general']
-knn_approaches = ['knn_cuda', 'knn_scipy', 'knn_sklearn']
+knn_approaches = ['knn', 'knn_cuda', 'knn_scipy', 'knn_sklearn']
 
 class info(object):
 
     def __init__(self, case, data, approach='kde_c', bandwidth='silverman', kernel='gaussian', k=10,
-                 base=2, conditioned=False, specific=False, averaged=True, xyindex=None):
+                 base=np.e, conditioned=False, specific=False, averaged=True, xyindex=None):
         '''
         Input:
         case        -- the number of dimension to be computed [int]
@@ -108,7 +108,7 @@ class info(object):
                 self.knn = knn_cuda
             elif approach is 'knn_sklearn':
                 self.knn = knn_sklearn
-            elif approach is 'knn_scipy':
+            elif approach in ['knn', 'knn_scipy']:
                 self.knn = knn_scipy
             else:
                 raise Exception('Invald KNN approach!')
@@ -142,10 +142,11 @@ class info(object):
             if xyindex is None:
                 if conditioned: self.xlastind = 1
             elif isinstance(xyindex,list):
-                if len(xyindex) == 1 and xyindex[0] <= ndim:
-                    self.xlastind = xyindex[0]
-                else:
-                    raise Exception('xyindex is not correct for 1D case: ' + str(xyindex))
+                if conditioned:
+                    if len(xyindex) == 1 and xyindex[0] <= ndim:
+                        self.xlastind = xyindex[0]
+                    else:
+                        raise Exception('xyindex is not correct for 1D case: ' + str(xyindex))
             else:
                 raise Exception('Unknown type of xyindex %s' % str(type(xyindex)))
         # 2D
@@ -154,10 +155,16 @@ class info(object):
                 if not conditioned: self.xlastind = 1
                 elif conditioned:   self.xlastind, self.ylastind = 1, 2
             elif isinstance(xyindex,list):
-                if len(xyindex) == 2 and xyindex[0] < xyindex[1] and xyindex[1] <= ndim:
-                    self.xlastind, self.ylastind = xyindex[0], xyindex[1]
-                else:
-                    raise Exception('xyindex is not correct for 2D case: ' + str(xyindex))
+                if conditioned:
+                    if len(xyindex) == 2 and xyindex[0] < xyindex[1] and xyindex[1] <= ndim:
+                        self.xlastind, self.ylastind = xyindex[0], xyindex[1]
+                    else:
+                        raise Exception('xyindex is not correct for 2D case: ' + str(xyindex))
+                elif not conditioned:
+                    if len(xyindex) == 1 and xyindex[0] <= ndim:
+                        self.xlastind = xyindex[0]
+                    else:
+                        raise Exception('xyindex is not correct for 2D case: ' + str(xyindex))
             else:
                 raise Exception('Unknown type of xyindex %s' % str(type(xyindex)))
         # 3D
@@ -166,10 +173,16 @@ class info(object):
                 if not conditioned: self.xlastind, self.ylastind = 1, 2
                 elif conditioned:   self.xlastind, self.ylastind, self.zlastind = 1, 2, 3
             elif isinstance(xyindex,list):
-                if len(xyindex) == 3 and xyindex[0] < xyindex[1] and xyindex[1] < xyindex[2] and xyindex[2] <= ndim:
-                    self.xlastind, self.ylastind, self.zlastind = xyindex[0], xyindex[1], xyindex[2]
-                else:
-                    raise Exception('xyindex is not correct for 3D case: ' + str(xyindex))
+                if conditioned:
+                    if len(xyindex) == 3 and xyindex[0] < xyindex[1] and xyindex[1] < xyindex[2] and xyindex[2] <= ndim:
+                        self.xlastind, self.ylastind, self.zlastind = xyindex[0], xyindex[1], xyindex[2]
+                    else:
+                        raise Exception('xyindex is not correct for 3D case: ' + str(xyindex))
+                elif not conditioned:
+                    if len(xyindex) == 2 and xyindex[0] < xyindex[1] and xyindex[1] <= ndim:
+                        self.xlastind, self.ylastind = xyindex[0], xyindex[1]
+                    else:
+                        raise Exception('xyindex is not correct for 2D case: ' + str(xyindex))
             else:
                 raise Exception('Unknown type of xyindex %s' % str(type(xyindex)))
 
@@ -203,14 +216,22 @@ class info(object):
         npts, ndim = data.shape
 
         # Compute the ball radius of the k nearest neighbor for each data point
-        dist, _ = knn(querypts=data, refpts=data, k=k+1)
-        radiusset = dist[:, -1]
+        tree = cKDTree(data)
+        dist, ind = tree.query(data, k+1, p=float('inf'))
+        rset    = dist[:, -1][:, np.newaxis]
+
+        # Locate the index where rset are zero, and change these values to 1e-14
+        rset[rset == 0] = 1e-14
+
+        # # Compute the ball radius of the k nearest neighbor for each data point
+        # dist, _ = knn(querypts=data, refpts=data, k=k+1)
+        # rset = dist[:, -1]
 
         # Note that the number of nearest neighbors with ball radius radiusset is always k in the joint dataset
         kset = k*np.ones(npts)
 
         # Compute information metrics
-        self.hx = computeEntropyKNN(npts, ndim, kset, radiusset, base)
+        self.hx = computeEntropyKNN(npts, ndim, kset, rset, base)
 
     def __computeInfo1D_conditioned_kde(self):
         '''
@@ -255,14 +276,27 @@ class info(object):
         wdata = data[:,range(xlastind,ndim)]
 
         # Compute the ball radius of the k nearest neighbor for each data point
-        dist, _ = knn(querypts=data, refpts=data, k=k+1)
-        rset = dist[:, -1][:, np.newaxis]
+        tree = cKDTree(data)
+        dist, ind = tree.query(data, k+1, p=float('inf'))
+        rset    = dist[:, -1][:, np.newaxis]
 
-        # Get the number of nearest neighbors for X and W based on the ball radius
-        distw, _ = knn(querypts=wdata, refpts=wdata, k=npts)
-        distx, _ = knn(querypts=xdata, refpts=xdata, k=npts)
-        kwset    = np.sum(distw < rset, axis=1)
-        kxset    = np.sum(distx < rset, axis=1)
+        # Locate the index where rset are zero, and change these values to 1e-14
+        rset[rset == 0] = 1e-14
+
+        # Get the number of nearest neighbors for X and Y based on the ball radius
+        treew, treex = cKDTree(wdata), cKDTree(xdata)
+        kwset = np.array([len(treew.query_ball_point(wdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+        kxset = np.array([len(treex.query_ball_point(xdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+
+        # # Compute the ball radius of the k nearest neighbor for each data point
+        # dist, _ = knn(querypts=data, refpts=data, k=k+1)
+        # rset = dist[:, -1][:, np.newaxis]
+
+        # # Get the number of nearest neighbors for X and W based on the ball radius
+        # distw, _ = knn(querypts=wdata, refpts=wdata, k=npts)
+        # distx, _ = knn(querypts=xdata, refpts=xdata, k=npts)
+        # kwset    = np.sum(distw < rset, axis=1)
+        # kxset    = np.sum(distx < rset, axis=1)
 
         # Note that the number of nearest neighbors with ball radius rset for XW is always k in the joint dataset
         kset = k*np.ones(npts)
@@ -322,14 +356,27 @@ class info(object):
         ydata = data[:,range(xlastind,ndim)]
 
         # Compute the ball radius of the k nearest neighbor for each data point
-        dist, _ = knn(querypts=data, refpts=data, k=k+1)
+        tree = cKDTree(data)
+        dist, ind = tree.query(data, k+1, p=float('inf'))
         rset    = dist[:, -1][:, np.newaxis]
 
+        # Locate the index where rset are zero, and change these values to 1e-14
+        rset[rset == 0] = 1e-14
+
         # Get the number of nearest neighbors for X and Y based on the ball radius
-        disty, _ = knn(querypts=ydata, refpts=ydata, k=npts)
-        distx, _ = knn(querypts=xdata, refpts=xdata, k=npts)
-        kyset    = np.sum(disty < rset, axis=1)
-        kxset    = np.sum(distx < rset, axis=1)
+        treey, treex = cKDTree(ydata), cKDTree(xdata)
+        kyset = np.array([len(treey.query_ball_point(ydata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+        kxset = np.array([len(treex.query_ball_point(xdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+
+        # # Compute the ball radius of the k nearest neighbor for each data point
+        # dist, _ = knn(querypts=data, refpts=data, k=k+1)
+        # rset    = dist[:, -1][:, np.newaxis]
+
+        # # Get the number of nearest neighbors for X and Y based on the ball radius
+        # disty, _ = knn(querypts=ydata, refpts=ydata, k=npts)
+        # distx, _ = knn(querypts=xdata, refpts=xdata, k=npts)
+        # kyset    = np.sum(disty < rset, axis=1)
+        # kxset    = np.sum(distx < rset, axis=1)
 
         # Note that the number of nearest neighbors with ball radius rset for XW is always k in the joint dataset
         kset = k*np.ones(npts)
@@ -405,16 +452,30 @@ class info(object):
         ywdata = data[:,range(xlastind,ndim)]
 
         # Compute the ball radius of the k nearest neighbor for each data point
-        dist, _ = knn(querypts=data, refpts=data, k=k+1)
+        tree = cKDTree(data)
+        dist, ind = tree.query(data, k+1, p=float('inf'))
         rset    = dist[:, -1][:, np.newaxis]
 
+        # Locate the index where rset are zero, and change these values to 1e-14
+        rset[rset == 0] = 1e-14
+
         # Get the number of nearest neighbors for X and Y based on the ball radius
-        distyw, _ = knn(querypts=ywdata, refpts=ywdata, k=npts)
-        distxw, _ = knn(querypts=xwdata, refpts=xwdata, k=npts)
-        distw, _  = knn(querypts=wdata, refpts=wdata, k=npts)
-        kywset    = np.sum(distyw < rset, axis=1)
-        kxwset    = np.sum(distxw < rset, axis=1)
-        kwset     = np.sum(distw < rset, axis=1)
+        treeyw, treexw, treew = cKDTree(ywdata), cKDTree(xwdata), cKDTree(wdata)
+        kywset = np.array([len(treeyw.query_ball_point(ywdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+        kxwset = np.array([len(treexw.query_ball_point(xwdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+        kwset  = np.array([len(treew.query_ball_point(wdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+
+        # # Compute the ball radius of the k nearest neighbor for each data point
+        # dist, _ = knn(querypts=data, refpts=data, k=k+1)
+        # rset    = dist[:, -1][:, np.newaxis]
+
+        # # Get the number of nearest neighbors for X and Y based on the ball radius
+        # distyw, _ = knn(querypts=ywdata, refpts=ywdata, k=npts)
+        # distxw, _ = knn(querypts=xwdata, refpts=xwdata, k=npts)
+        # distw, _  = knn(querypts=wdata, refpts=wdata, k=npts)
+        # kywset    = np.sum(distyw < rset, axis=1)
+        # kxwset    = np.sum(distxw < rset, axis=1)
+        # kwset     = np.sum(distw < rset, axis=1)
 
         # Note that the number of nearest neighbors with ball radius rset for XW is always k in the joint dataset
         kset = k*np.ones(npts)
@@ -434,9 +495,6 @@ class info(object):
         Compute H(X), H(Y), H(Z), I(Y;Z), I(X;Z), I(X;Y), I(Y,Z|X), I(X,Z|Y), II,
                 I(X,Y;Z), R, S, U1, U2
         Here, X --> X2, Z --> Xtar, Y --> X1 in Allison's TIPNets manuscript.
-        Input:
-        pdfs --  a numpy array with shape (nx, ny, nz)
-        Output: NoneType
         '''
         base       = self.base
         data       = self.data
@@ -504,9 +562,6 @@ class info(object):
                 Sc = II + Rc
                 Uxc = I(X;Z|W) - Rc
                 Uyc = I(Y:Z|W) - Rc
-        Input:
-        pdfs --  a numpy array with shape (nx, ny, nz, nw1, nw2, nw3,...)
-        Output: NoneType
         '''
         base       = self.base
         data       = self.data
@@ -529,7 +584,7 @@ class info(object):
         _, ywpdfs  = computer.computePDF(data[:,range(xlastind,ylastind)+range(zlastind,ndim)])
         _, zwpdfs  = computer.computePDF(data[:,range(ylastind,ndim)])
         _, xywpdfs = computer.computePDF(data[:,range(0,ylastind)+range(zlastind,ndim)])
-        _, yzwpdfs = computer.computePDF(data[:,range(ylastind,ndim)])
+        _, yzwpdfs = computer.computePDF(data[:,range(xlastind,ndim)])
         _, xzwpdfs = computer.computePDF(data[:,range(0,xlastind)+range(ylastind,ndim)])
         # _, xpdfs   = computer.computePDF(data[:,[0]])
         # _, ypdfs   = computer.computePDF(data[:,[1]])
@@ -592,6 +647,251 @@ class info(object):
         self.s = self.r + self.ii                                           # Sc
         self.uxz = self.ixz_w - self.r                                      # U(X;Z|W)
         self.uyz = self.iyz_w - self.r                                      # U(Y;Z|W)
+
+
+    def __computeInfo3D_knn(self):
+        '''
+        Compute H(X), H(Y), H(Z), I(Y;Z), I(X;Z), I(X;Y), I(Y,Z|X), I(X,Z|Y), II,
+                I(X,Y;Z), R, S, U1, U2
+        Here, X --> X2, Z --> Xtar, Y --> X1 in Allison's TIPNets manuscript.
+        '''
+        base     = self.base
+        data     = self.data
+        k          = self.k
+        knn        = self.knn
+        npts, ndim = data.shape
+
+        xlastind, ylastind = self.xlastind, self.ylastind
+
+        # The dimensions for X, Y, and Z
+        xndim, yndim, zndim = xlastind, ylastind-xlastind, ndim-ylastind
+
+        # Get the conditioned data set
+        xdata  = data[:,range(0,xlastind)]
+        ydata  = data[:,range(xlastind,ylastind)]
+        zdata  = data[:,range(ylastind,ndim)]
+        xydata = data[:,range(0,ylastind)]
+        xzdata = data[:,range(0,xlastind)+range(ylastind,ndim)]
+        yzdata = data[:,range(xlastind,ndim)]
+
+        # The dimensions for the remaining variables
+        xyndim, xzndim, yzndim    = xydata.shape[1], xzdata.shape[1], yzdata.shape[1]
+
+        # Compute the ball radius of the k nearest neighbor for each data point
+        tree = cKDTree(data)
+        dist, ind = tree.query(data, k+1, p=float('inf'))
+        rset    = dist[:, -1][:, np.newaxis]
+
+        # Locate the index where rset are zero, and change these values to 1e-14
+        rset[rset == 0] = 1e-14
+
+        # Get the number of nearest neighbors for X and Y based on the ball radius
+        treey, treex, treez    = cKDTree(ydata), cKDTree(xdata), cKDTree(zdata)
+        treexy, treexz, treeyz = cKDTree(xydata), cKDTree(xzdata), cKDTree(yzdata)
+        kyset = np.array([len(treey.query_ball_point(ydata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+        kxset = np.array([len(treex.query_ball_point(xdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+        kzset = np.array([len(treez.query_ball_point(zdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+        kxyset = np.array([len(treexy.query_ball_point(xydata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+        kxzset = np.array([len(treexz.query_ball_point(xydata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+        kyzset = np.array([len(treeyz.query_ball_point(yzdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+
+        # # Compute the ball radius of the k nearest neighbor for each data point
+        # dist, _ = knn(querypts=data, refpts=data, k=k+1)
+        # rset    = dist[:, -1][:, np.newaxis]
+
+        # # Get the number of nearest neighbors for X, Y, Z, XY, YZ, and XZ based on the ball radius
+        # disty, _  = knn(querypts=ydata, refpts=ydata, k=npts)
+        # distx, _  = knn(querypts=xdata, refpts=xdata, k=npts)
+        # distz, _  = knn(querypts=zdata, refpts=zdata, k=npts)
+        # distxy, _ = knn(querypts=xydata, refpts=xydata, k=npts)
+        # distxz, _ = knn(querypts=xzdata, refpts=xzdata, k=npts)
+        # distyz, _ = knn(querypts=yzdata, refpts=yzdata, k=npts)
+        # kyset     = np.sum(disty < rset, axis=1)
+        # kxset     = np.sum(distx < rset, axis=1)
+        # kzset     = np.sum(distz < rset, axis=1)
+        # kxyset    = np.sum(distxy < rset, axis=1)
+        # kxzset    = np.sum(distxz < rset, axis=1)
+        # kyzset    = np.sum(distyz < rset, axis=1)
+
+        # Note that the number of nearest neighbors with ball radius rset for XW is always k in the joint dataset
+        kset = k*np.ones(npts)
+
+        # Compute the k-digamma term
+        # from scipy.special import digamma
+        # print digamma(npts) + digamma(k) - np.mean(digamma(kyset)) - np.mean(digamma(kxset))
+
+        # Compute information metrics
+        self.hxyz = computeEntropyKNN(npts, ndim, kset, rset, base)
+        self.hxy  = computeEntropyKNN(npts, xyndim, kxyset, rset, base)
+        self.hxz  = computeEntropyKNN(npts, xzndim, kxzset, rset, base)
+        self.hyz  = computeEntropyKNN(npts, yzndim, kyzset, rset, base)
+        self.hy   = computeEntropyKNN(npts, yndim, kyset, rset, base)
+        self.hx   = computeEntropyKNN(npts, xndim, kxset, rset, base)
+        self.hz   = computeEntropyKNN(npts, zndim, kzset, rset, base)
+
+        # Compute I(X;Z), I(Y;Z) and I(X;Y)
+        self.ixy = self.hx + self.hy - self.hxy                           # I(X;Z)
+        self.ixz = self.hx + self.hz - self.hxz                           # I(Y;Z)
+        self.iyz = self.hy + self.hz - self.hyz                           # I(X;Y)
+
+        # Compute II (= I(X;Y;Z))
+        self.itot = self.hxy + self.hz - self.hxyz                        # I(X,Y;Z)
+        self.ii   = self.itot - self.ixz - self.iyz                       # interaction information
+
+        # Compute R(Z;X,Y)
+        self.rmmi    = np.min([self.ixz, self.iyz])                       # RMMI (Eq.(7) in Allison)
+        self.isource = self.ixy / np.min([self.hx, self.hy])              # Is (Eq.(9) in Allison)
+        self.rmin    = -self.ii if self.ii < 0 else 0                     # Rmin (Eq.(10) in Allison)
+        self.r       = self.rmin + self.isource*(self.rmmi-self.rmin)     # Rs (Eq.(11) in Allison)
+
+
+    def __computeInfo3D_conditioned_knn(self):
+        '''
+        The function is aimed to compute the momentary interaction information at two paths and
+        its corresponding momentary inforamtion partitioning.
+        Compute I(X;Y|Z,W), I(X;Y|W), H(X|W), H(Y|W), I(X;Z|W), I(Y;Z|W)
+                II(X;Z;Y|W) = I(X;Y|Z,W) - I(X;Y|W)
+                Isc = I(X;Y|W) / min[H(X|W), H(Y|W)]
+                RMMIc = min[I(X;Z|W), I(Y;Z|W)]
+                Rminc = 0 if II > 0 else -II
+                Rc = Rminc + Isc*(RMMIc - Rminc)
+                Sc = II + Rc
+                Uxc = I(X;Z|W) - Rc
+                Uyc = I(Y:Z|W) - Rc
+        '''
+        base       = self.base
+        data       = self.data
+        averaged   = self.averaged
+        npts, ndim = data.shape
+        k          = self.k
+
+        xlastind, ylastind, zlastind = self.xlastind, self.ylastind, self.zlastind
+
+        # The dimensions for X, Y, Z, and W
+        xndim, yndim, zndim, wndim = xlastind, ylastind-xlastind, zlastind-ylastind, ndim-zlastind
+
+        # Compute the pdfs
+        data    = data
+        xdata   = data[:,range(0,xlastind)]
+        ydata   = data[:,range(xlastind,ylastind)]
+        zdata   = data[:,range(ylastind,zlastind)]
+        wdata   = data[:,range(zlastind,ndim)]
+        xydata  = data[:,range(0,ylastind)]
+        xzdata  = data[:,range(0,xlastind)+range(ylastind,zlastind)]
+        yzdata  = data[:,range(xlastind,zlastind)]
+        xwdata  = data[:,range(0,xlastind)+range(zlastind,ndim)]
+        ywdata  = data[:,range(xlastind,ylastind)+range(zlastind,ndim)]
+        zwdata  = data[:,range(ylastind,ndim)]
+        xywdata = data[:,range(0,ylastind)+range(zlastind,ndim)]
+        yzwdata = data[:,range(xlastind,ndim)]
+        xzwdata = data[:,range(0,xlastind)+range(ylastind,ndim)]
+
+        # The dimensions for the remaining variables
+        xywndim, yzwndim, xzwndim = xywdata.shape[1], yzwdata.shape[1], xzwdata.shape[1]
+        xyndim, xzndim, yzndim    = xydata.shape[1], xzdata.shape[1], yzdata.shape[1]
+        xwndim, ywndim, zwndim    = xwdata.shape[1], ywdata.shape[1], zwdata.shape[1]
+
+        # Compute the ball radius of the k nearest neighbor for each data point
+        tree = cKDTree(data)
+        dist, ind = tree.query(data, k+1, p=float('inf'))
+        rset    = dist[:, -1][:, np.newaxis]
+
+        # Locate the index where rset are zero, and change these values to 1e-14
+        rset[rset == 0] = 1e-14
+
+        # Get the number of nearest neighbors for X and Y based on the ball radius
+        treey, treex, treez, treew = cKDTree(ydata), cKDTree(xdata), cKDTree(zdata), cKDTree(wdata)
+        treexw, treeyw, treezw     = cKDTree(xwdata), cKDTree(ywdata), cKDTree(zwdata)
+        treexyw, treeyzw, treexzw  = cKDTree(xywdata), cKDTree(yzwdata), cKDTree(xzwdata)
+        kyset = np.array([len(treey.query_ball_point(ydata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+        kxset = np.array([len(treex.query_ball_point(xdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+        kzset = np.array([len(treez.query_ball_point(zdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+        kwset = np.array([len(treew.query_ball_point(wdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+        kxwset = np.array([len(treexw.query_ball_point(xwdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+        kywset = np.array([len(treeyw.query_ball_point(ywdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+        kzwset = np.array([len(treezw.query_ball_point(zwdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+        kxywset = np.array([len(treexyw.query_ball_point(xywdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+        kyzwset = np.array([len(treeyzw.query_ball_point(yzwdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+        kxzwset = np.array([len(treexzw.query_ball_point(xzwdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+
+        # # Compute the ball radius of the k nearest neighbor for each data point
+        # dist, _ = knn(querypts=data, refpts=data, k=k+1)
+        # rset    = dist[:, -1][:, np.newaxis]
+
+        # # Get the number of nearest neighbors for X, Y, Z, XY, YZ, and XZ based on the ball radius
+        # disty, _  = knn(querypts=ydata, refpts=ydata, k=npts)
+        # distx, _  = knn(querypts=xdata, refpts=xdata, k=npts)
+        # distz, _  = knn(querypts=zdata, refpts=zdata, k=npts)
+        # distw, _  = knn(querypts=wdata, refpts=wdata, k=npts)
+        # # distxy, _ = knn(querypts=xydata, refpts=xydata, k=npts)
+        # # distxz, _ = knn(querypts=xzdata, refpts=xzdata, k=npts)
+        # # distyz, _ = knn(querypts=yzdata, refpts=yzdata, k=npts)
+        # distxw, _ = knn(querypts=xwdata, refpts=xwdata, k=npts)
+        # distyw, _ = knn(querypts=ywdata, refpts=ywdata, k=npts)
+        # distzw, _ = knn(querypts=zwdata, refpts=zwdata, k=npts)
+        # distxyw, _ = knn(querypts=xywdata, refpts=xywdata, k=npts)
+        # distyzw, _ = knn(querypts=yzwdata, refpts=yzwdata, k=npts)
+        # distxzw, _ = knn(querypts=xzwdata, refpts=xzwdata, k=npts)
+        # kyset     = np.sum(disty < rset, axis=1)
+        # kxset     = np.sum(distx < rset, axis=1)
+        # kzset     = np.sum(distz < rset, axis=1)
+        # # kxyset    = np.sum(distxy < rset, axis=1)
+        # # kxzset    = np.sum(distxz < rset, axis=1)
+        # # kyzset    = np.sum(distyz < rset, axis=1)
+        # kxwset    = np.sum(distxw < rset, axis=1)
+        # kywset    = np.sum(distyw < rset, axis=1)
+        # kzwset    = np.sum(distzw < rset, axis=1)
+        # kxywset   = np.sum(distxyw < rset, axis=1)
+        # kyzwset   = np.sum(distyzw < rset, axis=1)
+        # kxzwset   = np.sum(distxzw < rset, axis=1)
+
+        # Note that the number of nearest neighbors with ball radius rset for XW is always k in the joint dataset
+        kset = k*np.ones(npts)
+
+        # Compute the k-digamma term
+        # from scipy.special import digamma
+        # print digamma(npts) + digamma(k) - np.mean(digamma(kyset)) - np.mean(digamma(kxset))
+
+        # Compute information metrics
+        self.hxyzw = computeEntropyKNN(npts, ndim, kset, rset, base)
+        self.hxyw = computeEntropyKNN(npts, xywndim, kxywset, rset, base)
+        self.hyzw = computeEntropyKNN(npts, yzwndim, kyzwset, rset, base)
+        self.hxzw = computeEntropyKNN(npts, xzwndim, kxzwset, rset, base)
+        # self.hxy  = computeEntropyKNN(npts, xyndim, kxyset, rset, base)
+        # self.hxz  = computeEntropyKNN(npts, xzndim, kxzset, rset, base)
+        # self.hyz  = computeEntropyKNN(npts, yzndim, kyzset, rset, base)
+        self.hxw  = computeEntropyKNN(npts, xwndim, kxwset, rset, base)
+        self.hyw  = computeEntropyKNN(npts, ywndim, kywset, rset, base)
+        self.hzw  = computeEntropyKNN(npts, zwndim, kzwset, rset, base)
+        self.hy   = computeEntropyKNN(npts, yndim, kyset, rset, base)
+        self.hx   = computeEntropyKNN(npts, xndim, kxset, rset, base)
+        self.hz   = computeEntropyKNN(npts, zndim, kzset, rset, base)
+        self.hw   = computeEntropyKNN(npts, wndim, kwset, rset, base)
+
+        self.hx_w  = self.hxw - self.hw                                     # H(X|W)
+        self.hy_w  = self.hyw - self.hw                                     # H(Y|W)
+
+        # Compute all the conditional mutual information
+        self.ixy_w = self.hxw + self.hyw - self.hw - self.hxyw              # I(X;Y|W)
+        self.ixz_w = self.hxw + self.hzw - self.hw - self.hxzw              # I(X;Z|W)
+        self.iyz_w = self.hyw + self.hzw - self.hw - self.hyzw              # I(Y;Z|W)
+
+        # Compute MIIT
+        self.ii = self.hxyw + self.hyzw + self.hxzw + self.hw - self.hxw - self.hyw - self.hzw - self.hxyzw
+        self.itot = self.ii + self.ixz_w + self.iyz_w
+
+        # Compute R(Z;X,Y|W)
+        self.rmmi    = np.min([self.ixz_w, self.iyz_w])                     # RMMIc
+        # self.isource = self.ixy_w / np.min([self.hxw, self.hyw])            # Isc
+        self.isource = self.ixy_w / np.min([self.hx_w, self.hy_w])        # Isc
+        self.rmin    = -self.ii if self.ii < 0 else 0                       # Rminc
+        self.r       = self.rmin + self.isource*(self.rmmi-self.rmin)       # Rc
+
+        # Compute S(Z;X,Y|W), U(Z;X|W) and U(Z;Y|W)
+        self.s = self.r + self.ii                                           # Sc
+        self.uxz = self.ixz_w - self.r                                      # U(X;Z|W)
+        self.uyz = self.iyz_w - self.r                                      # U(Y;Z|W)
+
 
     # def __computeInfo2D_multivariate_conditioned(self):
     #     '''
@@ -908,7 +1208,7 @@ def computeEntropy(pdfs, base=2, averaged=True):
     elif not averaged:
         return -np.sum(pdfs*pdfs_log)
 
-def computeEntropyKNN(npts, ndim, kset, radiusset, base=2):
+def computeEntropyKNN(npts, ndim, kset, radiusset, base=np.e):
     '''
     Compute the entropy based on the k-nearest-neighbor method.
     Inputs:
@@ -928,12 +1228,15 @@ def computeEntropyKNN(npts, ndim, kset, radiusset, base=2):
     # Compute the radius term
     # pdfs_log  = np.ma.log(pdfs)
     # pdfs_log  = pdfs_log.filled(0) / np.log(base)
+    # rd = np.mean(np.log(radiusset + np.finfo('float').eps) / np.log(base))*ndim
     rd = np.mean(np.log(radiusset) / np.log(base))*ndim
 
     # Compute the k-digamma term
     kd = np.mean(digamma(kset))
 
     # Compute the entropy
+    # print radiusset[-1]
+    # print digamma(npts), kd, rd
     return digamma(npts) - kd + rd + np.log(vdx) / np.log(base)
 
 def computeConditionalInfo(xpdfs, ypdfs, xypdfs, base=2):
@@ -1098,12 +1401,26 @@ def computeMIKNN(data, k=2, xyindex=[1]):
     dist, ind = tree.query(data, k+1, p=float('inf'))
     rset    = dist[:, -1][:, np.newaxis]
 
+    # Locate the index where rset are zero, and change these values to 1e-14
+    rset[rset == 0] = 1e-14
+
     # Get the number of nearest neighbors for X and Y based on the ball radius
     treey, treex = cKDTree(ydata), cKDTree(xdata)
     kyset = np.array([len(treey.query_ball_point(ydata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
     kxset = np.array([len(treex.query_ball_point(xdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
 
     # print np.mean(digamma(kwset)), digamma(k), np.mean(digamma(kywset)), np.mean(digamma(kxwset))
+    # print kyset
+    # print rset
+    # print np.where(np.isinf(-digamma(kyset)))
+    # print kyset[np.isinf(-digamma(kyset))]
+    # print ind[np.isinf(-digamma(kyset)), :]
+    # print rset[np.isinf(-digamma(kyset)), :]
+
+    # Locate the index where ky and kx are zero, and change these values to the corresponding duplicated number
+    # kyset[np.isinf(-digamma(kyset))] = 1
+    # kxset[np.isinf(-digamma(kxset))] = 1
+
     # Compute information metrics
     return digamma(npts) + digamma(k) - np.mean(digamma(kyset)) - np.mean(digamma(kxset))
 
@@ -1133,6 +1450,9 @@ def computeCMIKNN(data, k=2, xyindex=[1,2]):
     tree = cKDTree(data)
     dist, ind = tree.query(data, k+1, p=float('inf'))
     rset    = dist[:, -1][:, np.newaxis]
+
+    # Locate the index where rset are zero, and change these values to 1e-14
+    rset[rset == 0] = 1e-14
 
     # Get the number of nearest neighbors for X and Y based on the ball radius
     treeyw, treexw, treew = cKDTree(ywdata), cKDTree(xwdata), cKDTree(wdata)

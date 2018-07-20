@@ -45,22 +45,35 @@ def two_species_logistic_delayed(x0, y0, N, rx, ry, bxy, byx, tau):
     return x_set, y_set
 
 
-def Lorenze_model(x0, y0, z0, N, dt, sigma, r, b):
-    """The Lorenze model."""
-    x = np.zeros(N)
-    y = np.zeros(N)
-    z = np.zeros(N)
+def Lorenz_model(N, dt, e=0., seed=1, init=None, s=10, r=28, b=2.667):
+    """The Lorenz model."""
+    if seed is not None:
+        np.random.seed(1)
+    trash = 2000
+    data = np.zeros([trash+N+1, 3])
 
-    x[0] = x0
-    y[0] = y0
-    z[0] = z0
+    def lorenzele(x, y, z, s=10, r=28, b=2.667):
+        x_dot = s*(y - x)
+        y_dot = r*x - y - x*z
+        z_dot = x*y - b*z
+        return x_dot, y_dot, z_dot
 
-    for i in range(N-1):
-        x[i+1] = x[i] + dt*(sigma*(y[i]-x[i]))
-        y[i+1] = y[i] + dt*(-x[i]*z[i] + r*x[i] - y[i])
-        z[i+1] = z[i] + dt*(x[i]*y[i] - b*z[i])
+    # Setting initial values
+    if init is not None:
+        data[0,:] = init
+    else:
+        data[0,:] = np.random.random(3)
 
-    return x, y, z
+    # Stepping through "time".
+    for i in range(trash+N):
+        # Derivatives of the X, Y, Z state
+        x_dot, y_dot, z_dot = lorenzele(data[i,0], data[i,1], data[i,2], s=s, r=r, b=b)
+        data[i+1,0] += data[i,0] + (x_dot * dt) + e*np.random.rand()*dt
+        data[i+1,1] += data[i,1] + (y_dot * dt) + e*np.random.rand()*dt
+        data[i+1,2] += data[i,2] + (z_dot * dt) + e*np.random.rand()*dt
+
+    # print data[:10,:]
+    return data[trash:]
 
 
 def fishery_model(N, rxx=3.1, rxt=-.3, ryy=2.9, ryt=-.36, cx=.4, cy=.35):
