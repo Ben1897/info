@@ -16,7 +16,7 @@ This is an open-source program for evaluating the dynamics of complex system by 
 cd [info_folder]/info/info/utils/
 make clean; make
 ```
-5. Generate the dynamic libraries for the K-Nearest Neighbor (KNN) GPU by:
+5. Generate the dynamic libraries for the K-Nearest Neighbor (KNN) GPU by (Note that it is suggested to use scipy's own KNN approach):
     - Download the [Fast K-Nearest Neighbor search with GPU](https://github.com/PeishiJiang/knn_cuda) (Note that in Peishi's version the distance calculation is based on the maximum norm).
     - Specify `PYTHON_INCLUDE`, `PYTHON_LIB`, `CUDA_DIR` correctly in the `Makefile.config`.
     - Install [Boost](http://www.boost.org/) to enable the connection between C++ and Python code.
@@ -25,8 +25,6 @@ make clean; make
 ```
 cp [knn-folder]/knn.so [info-folder]/info/info/utils/
 ```
-    
-    - Note that it is suggested to use scipy's own KNN approach in a normal situation.
 6. [TODO] make file for pdf estimation codes
 
 ## License
