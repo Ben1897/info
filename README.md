@@ -5,8 +5,8 @@
 This is an open-source program for evaluating the dynamics of complex system by using an information-theoretic framework based on time series observations
 
 ## References
-Jiang, P., & Kumar, P. (2018). Interactions of information transfer along separable causal paths. Physical Review E, 97(4), 042310.
-Jiang, P., & Kumar, P. (2018). Information Transfer from Causal History in Complex System Dynamics. Physical Review E, in review.
+- Jiang, P., & Kumar, P. (2018). Interactions of information transfer along separable causal paths. Physical Review E, 97(4), 042310.
+- Jiang, P., & Kumar, P. (2018). Information Transfer from Causal History in Complex System Dynamics. Physical Review E, in review.
 
 ## Requirements
 1. Add the folder into your environment variable PYTHONPATH.
@@ -27,6 +27,9 @@ cp [knn-folder]/knn.so [info-folder]/info/info/utils/
 ```
     - Note that it is suggested to use scipy's own KNN approach in a normal situation.
 6. [TODO] make file for pdf estimation codes
+
+## License
+This software is freeware and is released under GNU GPL. See LICENSE file for more information.
 
 ## Contacts
 Peishi Jiang (pjiang6@illinois.edu), Praveen Kumar (kumar1@illinois.edu)
