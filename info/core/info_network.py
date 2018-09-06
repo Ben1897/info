@@ -532,6 +532,68 @@ class info_network(object):
         return mitp
 
 
+    def compute_mitp_approx(self, sources, target, conditioned=True, sst=False, verbosity=1):
+        """Compute the approximate momentary information transfer from sources to target.
+
+        Input:
+        sources     -- a list of source nodes [[set (var_index, lag)]]
+        target      -- the target node [set (var_index, lag)]
+
+        """
+        base    = self.base
+        data    = self.data
+        k       = self.k
+        approach = self.approach
+        kernel  = self.kernel
+
+        npts, nvar = data.shape
+
+        # If not conditioned, just compute the normal information metrics (not the momentary one)
+        if not conditioned:
+            # Reorganize the data
+            data_required = reorganize_data(data, [target] + sources)
+            # Drop the nan
+            data_required = dropna(data_required)
+            # Compute the information transfer
+            tit = computeMIKNN(data_required, k=k, xyindex=[1]) / np.log(base)        # distant causal history
+            # Conduct the significance test if required
+            if sst:
+                ssttit = independenceSet(target, sources, data=data,
+                                         approach=approach, k=k, kernel=kernel, base=base)
+                return tit, ssttit
+
+            return tit
+
+        # Get the condition set and the parents of the target in the causal subgraph
+        # which are all the contemporaneous nodes next to the furtherest source node
+        srcc = sources
+        lagmax = min([node[1] for node in srcc])
+        w = [(i, lagmax-1) for i in range(nvar)]
+
+        # Reorganize the data
+        data1 = reorganize_data(data, [target]+srcc+w)
+        # print data1.shape
+
+        # Drop the nan values
+        data1 = dropna(data1)
+        xyindex1 = [1,1+len(srcc)]
+        # print data21.shape, data22.shape
+        if data1.shape[0] < 100:
+            print 'Not enough time series datapoints (<100)!'
+            return None
+
+        # Compute the information from the immediate causal history and distant causal history
+        mitp  = computeCMIKNN(data1, k=k, xyindex=xyindex1) / np.log(base) # immediate causal history
+
+        # Conduct the significance test if required
+        if sst:
+            sstmitp = conditionalIndependenceSet(target, srcc, conditionset=w, data=data,
+                                                 approach=approach, k=k, kernel=kernel, base=base)
+            return mitp, sstmitp
+
+        return mitp
+
+
     def compute_mpid(self, sources1, sources2, target, conditioned=True, verbosity=1):
         """Compute the momentary partial information decomposition from two sets of sources to the target.
 
@@ -569,6 +631,10 @@ class info_network(object):
             print network.search_mpid_set_condition(sources1, sources2, target, verbosity=verbosity)
             return None
 
+        if len(srcs1) == 0 or len(srcs2) == 0:
+            print "No causal paths to the target from one of the source set."
+            return None
+
         # Reorganize the data
         # data_required = reorganize_data(data, sources1 + sources2 + [target] + w)
         data_required = reorganize_data(data, srcs1 + srcs2 + [target] + w)
@@ -587,12 +653,67 @@ class info_network(object):
         return inforesult
 
 
-    def compute_cit(self, sources, target, sst=False, verbosity=1):
+    def compute_mpid_approx(self, sources1, sources2, target, conditioned=True, verbosity=1):
+        """Compute the momentary partial information decomposition from two sets of sources to the target.
+
+        Input:
+        sources1    -- a first list of source nodes [[set (var_index, lag)]]
+        sources2    -- a second list of source nodes [[set (var_index, lag)]]
+        target      -- the target node [set (var_index, lag)]
+
+        """
+        base    = self.base
+        data    = self.data
+        k       = self.k
+        approach = self.approach
+        kernel  = self.kernel
+
+        npts, nvar = data.shape
+
+        # If not conditioned, just compute the normal information metrics (not the momentary one)
+        if not conditioned:
+            # Reorganize the data
+            data_required = reorganize_data(data, sources1 + sources2 + [target])
+            # Drop the nan
+            data_required = dropna(data_required)
+            xyindex = [len(sources1), len(sources1)+len(sources2)]
+            # Compute the information transfer
+            inforesult = info(case=3, data=data_required, approach=approach, bandwidth='silverman',
+                              kernel=kernel, k=k, base=base, conditioned=False, xyindex=xyindex)
+
+            return inforesult
+
+        # Get the approximate MPID conditions
+        # which are all the contemporaneous nodes next to the furtherest source node
+        srcs1, srcs2 = sources1, sources2
+        lagmax = min([node[1] for node in srcs1+srcs2])
+        w = [(i, lagmax-1) for i in range(nvar)]
+
+        if len(srcs1) == 0 or len(srcs2) == 0:
+            print "No causal paths to the target from one of the source set."
+            return None
+
+        # Reorganize the data
+        # data_required = reorganize_data(data, sources1 + sources2 + [target] + w)
+        data_required = reorganize_data(data, srcs1 + srcs2 + [target] + w)
+        # Dropna
+        data_required = dropna(data_required)
+        # Compute the information transfer
+        xyindex = [len(srcs1), len(srcs1)+len(srcs2), len(srcs1)+len(srcs2)+1]
+        inforesult = info(case=3, data=data_required, approach=approach, bandwidth='silverman',
+                          kernel=kernel, k=k, base=base, conditioned=True, xyindex=xyindex)
+
+        return inforesult
+
+
+    def compute_cit(self, sources, target, sst=False, pidcompute=False, verbosity=1):
         """Compute the cumulative information transfer from sources to target.
 
         Input:
-        sources     -- a list of source nodes [[set (var_index, lag)]]
-        target      -- the target node [set (var_index, lag)]
+        sources    -- a list of source nodes [[set (var_index, lag)]]
+        target     -- the target node [set (var_index, lag)]
+        sst        -- whether conducting statistical significance test [bool]
+        pidcompute -- whether conducting partial information decomposition for the information from the distant causal history [bool]
 
         """
         network = self.network
@@ -615,7 +736,7 @@ class info_network(object):
             print 'Not enough time series datapoints (<100)!'
             return citset, mitset, miset
         tit = computeMIKNN(data1, k=k, xyindex=[1]) / np.log(base)
-        print data1
+        # print data1
 
         # Get the condition set and the parents of the target in the causal subgraph
         try:
@@ -644,6 +765,42 @@ class info_network(object):
         cit  = computeCMIKNN(data21, k=k, xyindex=xyindex1) / np.log(base) # immediate causal history
         past = computeMIKNN(data22, k=k, xyindex=[1]) / np.log(base)        # distant causal history
 
+        # Conduct PID for the immediate and past histories
+        if pidcompute:
+            # Decompose ptc into two parts: (1) the past nodes from the target variable and (2) the remaining
+            auto1 = [node for node in ptc if node[0] == target[0]]
+            if auto1 == [] or len(auto1) == len(ptc):
+                pidimmediate = [None, None, None, None]
+            else:
+                rest1 = list(set(ptc) - set(auto1))
+                # Reorder w
+                # print len(auto), len(rest)
+                ptc = auto1 + rest1
+                data21 = reorganize_data(data, ptc+[target]+w)
+                data21 = dropna(data21)
+                # Conduct PID
+                # print data22.shape
+                pidimmediateinfo = info(case=3, data=data21, approach=approach, k=k,
+                                        base=np.e, conditioned=True, xyindex=[len(auto1), len(ptc), len(ptc)+1], deldata=True)
+                pidimmediate = [pidimmediateinfo.s, pidimmediateinfo.r, pidimmediateinfo.uxz, pidimmediateinfo.uyz]
+
+            # Decompose w into two parts: (1) the past nodes from the target variable and (2) the remaining
+            auto2 = [node for node in w if node[0] == target[0]]
+            if auto2 == [] and len(auto2) != len(w):
+                pidpast = [None, None, None, None]
+            else:
+                resu2 = list(set(w) - set(auto2))
+                # Reorder w
+                # print len(auto2), len(resu2)
+                w = auto2 + resu2
+                data22 = reorganize_data(data, w+[target])
+                data22 = dropna(data22)
+                # Conduct PID
+                # print data22.shape
+                pidpastinfo = info(case=3, data=data22, approach=approach, k=k,
+                                   base=np.e, conditioned=False, xyindex=[len(auto2), len(w)], deldata=True)
+                pidpast = [pidpastinfo.s, pidpastinfo.r, pidpastinfo.uxz, pidpastinfo.uyz]
+
         # Conduct the significance test if required
         if sst:
             ssttit = independenceSet(target, pt, data=data,
@@ -654,7 +811,154 @@ class info_network(object):
                                       approach=approach, k=k, kernel=kernel, base=base)
             return cit, sstcit, past, sstpast, tit, ssttit
 
-        return cit, past, tit
+        if pidcompute:
+            return cit, past, tit, pidimmediate, pidpast
+        else:
+            return cit, past, tit
+
+
+    def compute_cit_approx(self, sources, target, sst=False, pidcompute=False, verbosity=1):
+        """Compute the approximate cumulative information transfer from sources to target.
+
+        Input:
+        sources    -- a list of source nodes [[set (var_index, lag)]]
+        target     -- the target node [set (var_index, lag)]
+        sst        -- whether conducting statistical significance test [bool]
+        pidcompute -- whether conducting partial information decomposition for the information from the distant causal history [bool]
+
+        """
+        base    = self.base
+        data    = self.data
+        k       = self.k
+        approach = self.approach
+        kernel  = self.kernel
+
+        # Get the numbers of data points and variables
+        npt, nvar = data.shape
+
+        # Get the parents of the target
+        # which now are all the nodes at the previous time step of the target
+        pt = [(i, target[1]-1) for i in range(nvar)]
+
+        # Compute the total information
+        # Reorganize the data
+        data1 = reorganize_data(data, [target]+pt)
+        data1 = dropna(data1)
+        if data1.shape[0] < 100:
+            print 'Not enough time series datapoints (<100)!'
+            return citset, mitset, miset
+        tit = computeMIKNN(data1, k=k, xyindex=[1]) / np.log(base)
+
+        # Get the condition set and the parents of the target in the causal subgraph
+        # which now are all the nodes at the previous time step of the sources
+        lagmax = min([node[1] for node in sources])
+        w = [(i, lagmax-1) for i in range(nvar)]
+        ptc = deepcopy(pt)
+
+        # Reorganize the data
+        data21   = reorganize_data(data, [target]+ptc+w)
+        data22   = reorganize_data(data, [target]+w)
+
+        # Drop the nan values
+        data21   = dropna(data21)
+        data22   = dropna(data22)
+        xyindex1 = [1,1+len(ptc)]
+        if data21.shape[0] < 100 or data22.shape[0] < 100:
+            print 'Not enough time series datapoints (<100)!'
+            return None
+
+        # Compute the information from the immediate causal history and distant causal history
+        cit  = computeCMIKNN(data21, k=k, xyindex=xyindex1) / np.log(base) # immediate causal history
+        past = computeMIKNN(data22, k=k, xyindex=[1]) / np.log(base)        # distant causal history
+
+        # Conduct PID for the immediate and past histories
+        if pidcompute:
+            # Decompose ptc into two parts: (1) the past nodes from the target variable and (2) the remaining
+            auto1 = [node for node in ptc if node[0] == target[0]]
+            if auto1 == [] or len(auto1) == len(ptc):
+                pidimmediate = [None, None, None, None]
+            else:
+                rest1 = list(set(ptc) - set(auto1))
+                # Reorder w
+                ptc = auto1 + rest1
+                data21 = reorganize_data(data, ptc+[target]+w)
+                data21 = dropna(data21)
+                # Conduct PID
+                pidimmediateinfo = info(case=3, data=data21, approach=approach, k=k,
+                                        base=np.e, conditioned=True, xyindex=[len(auto1), len(ptc), len(ptc)+1], deldata=True)
+                pidimmediate = [pidimmediateinfo.s, pidimmediateinfo.r, pidimmediateinfo.uxz, pidimmediateinfo.uyz]
+
+            # Decompose w into two parts: (1) the past nodes from the target variable and (2) the remaining
+            auto2 = [node for node in w if node[0] == target[0]]
+            if auto2 == [] and len(auto2) != len(w):
+                pidpast = [None, None, None, None]
+            else:
+                resu2 = list(set(w) - set(auto2))
+                # Reorder w
+                # print len(auto2), len(resu2)
+                w = auto2 + resu2
+                data22 = reorganize_data(data, w+[target])
+                data22 = dropna(data22)
+                # Conduct PID
+                # print data22.shape
+                pidpastinfo = info(case=3, data=data22, approach=approach, k=k,
+                                   base=np.e, conditioned=False, xyindex=[len(auto2), len(w)], deldata=True)
+                pidpast = [pidpastinfo.s, pidpastinfo.r, pidpastinfo.uxz, pidpastinfo.uyz]
+
+        # Conduct the significance test if required
+        if sst:
+            ssttit = independenceSet(target, pt, data=data,
+                                     approach=approach, k=k, kernel=kernel, base=base)
+            sstcit = conditionalIndependenceSet(target, ptc, conditionset=w, data=data,
+                                                approach=approach, k=k, kernel=kernel, base=base)
+            sstpast = independenceSet(target, w, data=data,
+                                      approach=approach, k=k, kernel=kernel, base=base)
+            return cit, sstcit, past, sstpast, tit, ssttit
+
+        if pidcompute:
+            return cit, past, tit, pidimmediate, pidpast
+        else:
+            return cit, past, tit
+
+
+    def compute_cc_set(self, tau=1, sst=False, verbosity=1):
+        """
+        Compute the pairwise correlation coefficient.
+
+        Input:
+        sst -- whether conducting the significance test [bool]
+
+        """
+        data    = self.data
+        network = self.network
+        base    = self.base
+        approach = self.approach
+        kernel = self.kernel
+        k      = self.k
+        nvar   = self.nvar
+
+        inforesults = np.ones([nvar, nvar, tau])  # inforesults[:,0] is the total information transfer
+
+        if sst:
+            sstresults = np.zeros([nvar, nvar, tau], dtype='bool')
+
+        for i in range(nvar):
+            # for j in range(i+1,nvar):
+            for j in range(nvar):
+                for k in range(tau):
+                    if i == j and k == 0: continue
+                    varx, vary = (i,0), (j,k)
+                    # Reorganize the data
+                    data_required = reorganize_data(data, [varx, vary])
+                    # Drop the nan values
+                    data_required = dropna(data_required)
+                    # Compute the total information
+                    inforesults[i,j,k] = np.corrcoef(data_required.T)[0,1]
+                    # print np.corrcoef(data_required.T)
+
+                # inforesults[j,i] = inforesults[i,j]
+
+        return inforesults
 
 
     def compute_mi_set(self, sst=False, verbosity=1):
@@ -935,7 +1239,90 @@ class info_network(object):
             return mitpset
 
 
-    def compute_cit_set(self, sources, target, taumax, verbosity=1):
+    def compute_mitp_approx_set(self, taumax=None, conditioned=True, sst=False, verbosity=1):
+        """Compute the approximate momentary information transfer from sources to target.
+
+        Input:
+        sources     -- a list of source nodes [[set (var_index, lag)]]
+        target      -- the target node [set (var_index, lag)]
+
+        """
+        network = self.network
+        base    = self.base
+        data    = self.data
+        k       = self.k
+        approach = self.approach
+        kernel  = self.kernel
+        nvar    = self.nvar
+
+        if taumax is None:
+            taumax = self.taumax
+
+        # Initialization
+        mitpset = np.zeros([nvar, nvar, taumax+1])
+
+        if sst:
+            sstmitpset = np.zeros([nvar, nvar, taumax+1], dtype='bool')
+
+        # Compute the mitp
+        for tar in range(nvar):
+            target = (tar, 0)
+            for src in range(nvar):
+                for k in range(2, taumax+1):
+                    sources = [(src, -l) for l in range(1, k)]
+                    if sst:
+                        mitpset[src,tar,k], sstmitpset[src,tar,k] = self.compute_mitp_approx(sources, target,
+                                                                                             conditioned=conditioned, sst=sst, verbosity=verbosity)
+                    else:
+                        mitpset[src,tar,k] = self.compute_mitp_approx(sources, target,
+                                                                      conditioned=conditioned, sst=sst, verbosity=verbosity)
+
+        # Return
+        if sst:
+            return mitpset, sstmitpset
+        else:
+            return mitpset
+
+
+    def compute_mpid_approx_set(self, taurange=[10], conditioned=True, verbosity=1):
+        """Compute the approximate momentary information transfer from sources to target.
+
+        Input:
+        sources     -- a list of source nodes [[set (var_index, lag)]]
+        target      -- the target node [set (var_index, lag)]
+
+        """
+        network = self.network
+        base    = self.base
+        data    = self.data
+        k       = self.k
+        approach = self.approach
+        kernel  = self.kernel
+        nvar    = self.nvar
+
+        # Initialization
+        mitpset = np.zeros([nvar, nvar, nvar, 4, len(taurange)])
+
+        # Compute the mitp
+        for tar in range(nvar):
+            target = (tar, 0)
+            # for k in range(2, taumax+1):
+            # for k in [tau+1 for tau in taurange]:
+            for j in range(len(taurange)):
+                k = taurange[j]+1
+                for src1 in range(nvar):
+                    for src2 in range(src1+1,nvar):
+                        sources1 = [(src1, -l) for l in range(1, k)]
+                        sources2 = [(src2, -l) for l in range(1, k)]
+
+                        inforesult = self.compute_mpid_approx(sources1, sources2, target, conditioned=conditioned, verbosity=verbosity)
+                        mitpset[src1,src2,tar,:,j] = [inforesult.s, inforesult.r, inforesult.uxz, inforesult.uyz]
+
+        # Return
+        return mitpset
+
+
+    def compute_cit_set(self, sources, target, taumax, pidcompute=False, sst=False, verbosity=1):
         """Compute the cumulative information transfer from source_ind_set to target_ind with increasing lags up to taumx.
 
         Input:
@@ -946,14 +1333,24 @@ class info_network(object):
         data    = self.data
         base    = self.base
         network = self.network
+        approach = self.approach
+        kernel  = self.kernel
         k       = self.k
 
         # Initialize
         citset   = np.zeros(taumax)
         pastset  = np.zeros(taumax)
+        pidpastset = np.zeros([taumax,4])
+        pidimmediateset = np.zeros([taumax,4])
         titset   = np.ones(taumax)
-        datasize = np.zeros(taumax)
-        dimsize  = np.zeros(taumax)
+        datasize = np.zeros([taumax,3])
+        dimsize  = np.zeros([taumax,3])
+        if sst:
+            sstpastset = np.zeros([taumax,4])
+
+        # Get the maximum lag in causalDict
+        paset = [pa for pset in self.causalDict.values() for pa in pset]
+        mpl = np.max([-pr[1] for pr in paset])
 
         # Get the parents of the target
         pt = network.search_parents(target)
@@ -970,6 +1367,9 @@ class info_network(object):
         tit = computeMIKNN(data1, k=k, xyindex=[1]) / np.log(base)
         titset = tit*titset
 
+        # Get the length of variables in tit
+        datasize[:,0], dimsize[:,0] = data1.shape
+
         wrepeat = False
 
         # Compute I and P
@@ -980,7 +1380,8 @@ class info_network(object):
             print "Target and sources:"
             print target, sources
             print ""
-            if not wrepeat:
+            # if not wrepeat:
+            if i <= mpl:
                 print str(i) + ' search condition sets'
                 try:
                     w, ptc, cpaths = network.search_cit_components(sources, target, verbosity=verbosity)
@@ -989,16 +1390,16 @@ class info_network(object):
                     print network.search_cit_components(sources, target)
                     continue
 
-                # Check whether w1 and ptnc are the same as w1old and ptncold
-                # Get the parents not in the causal subgraph
-                ptnc = list(set(pt) - set(ptc))
-                # Get the maxdim maximum parents in w
-                w1 = list(set(w) - set(ptnc))
-                # Move w1old one step further
-                w1old = [(wele[0], wele[1]-1) for wele in w1old]
+                # # Check whether w1 and ptnc are the same as w1old and ptncold
+                # # Get the parents not in the causal subgraph
+                # ptnc = list(set(pt) - set(ptc))
+                # # Get the maxdim maximum parents in w
+                # w1 = list(set(w) - set(ptnc))
+                # # Move w1old one step further
+                # w1old = [(wele[0], wele[1]-1) for wele in w1old]
 
-                if set(w1old) == set(w1) and set(ptncold) == set(ptnc):
-                    wrepeat = True
+                # if set(w1old) == set(w1) and set(ptncold) == set(ptnc):
+                #     wrepeat = True
 
             else:
                 print i
@@ -1017,7 +1418,9 @@ class info_network(object):
             # Drop the nan values
             data21   = dropna(data21)
             data22   = dropna(data22)
-            datasize[i], dimsize[i] = data21.shape
+            # Get the length of variables in tit and past
+            datasize[i,1], dimsize[i,1] = data21.shape
+            datasize[i,2], dimsize[i,2] = data22.shape
             xyindex1 = [1,1+len(ptc)]
             if data21.shape[0] < 100 or data22.shape[0] < 100:
                 print 'Not enough time series datapoints (<100)!'
@@ -1025,17 +1428,196 @@ class info_network(object):
             citset[i]  = computeCMIKNN(data21, k=k, xyindex=xyindex1) / np.log(base)
             pastset[i] = computeMIKNN(data22, k=k, xyindex=[1]) / np.log(base)
 
+            # Conduct sst for past
+            if sst:
+                sstpastset[i,:] = independenceSet(target, w, data=data, returnTrue=True,
+                                                  approach=approach, k=k, kernel=kernel, base=base)
+                # print sstpastset[i,:]
+
+            # Conduct PID for past
+            if pidcompute:
+                # Decompose ptc into two parts: (1) the past nodes from the target variable and (2) the remaining
+                auto1 = [node for node in ptc if node[0] == target[0]]
+                if auto1 == [] or len(auto1) == len(ptc):
+                    pidimmediateset[i,:] = np.nan
+                else:
+                    rest1 = list(set(ptc) - set(auto1))
+                    # Reorder w
+                    # print len(auto), len(rest)
+                    ptc = auto1 + rest1
+                    data21 = reorganize_data(data, ptc+[target]+w)
+                    data21 = dropna(data21)
+                    # Conduct PID
+                    # print data22.shape
+                    pidimmediateinfo = info(case=3, data=data21, approach=approach, k=k,
+                                            base=np.e, conditioned=True, xyindex=[len(auto1), len(ptc), len(ptc)+1], deldata=True)
+                    pidimmediateset[i,:] = [pidimmediateinfo.s, pidimmediateinfo.r, pidimmediateinfo.uxz, pidimmediateinfo.uyz]
+
+               # Decompose w into two parts: (1) the past nodes from the target variable and (2) the remaining
+                auto2 = [node for node in w if node[0] == target[0]]
+                if auto2 == [] or len(auto2) == len(w):
+                    # pidpastset[i,:] = [None, None, None, None]
+                    pidpastset[i,:] = np.nan
+                else:
+                    rest = list(set(w) - set(auto2))
+                    # Reorder w
+                    w = auto2 + rest
+                    data22 = reorganize_data(data, w+[target])
+                    data22 = dropna(data22)
+                    # Conduct PID
+                    pidpastinfo = info(case=3, data=data22, approach=approach, k=k,
+                                       base=np.e, conditioned=False, xyindex=[len(auto2), len(w)], deldata=True)
+                    pidpastset[i,:] = [pidpastinfo.s, pidpastinfo.r, pidpastinfo.uxz, pidpastinfo.uyz]
+
             sources = [(s[0], s[1]-1) for s in sources]
 
-            if not wrepeat:
-                # Copy w to wold
-                wold = w
-                # Get the parents not in the causal subgraph
-                ptncold = list(set(pt) - set(ptc))
-                # Get the maxdim maximum parents in w
-                w1old = list(set(wold) - set(ptncold))
 
-        return citset, pastset, titset, datasize, dimsize
+            # if not wrepeat:
+            #     # Copy w to wold
+            #     wold = w
+            #     # Get the parents not in the causal subgraph
+            #     ptncold = list(set(pt) - set(ptc))
+            #     # Get the maxdim maximum parents in w
+            #     w1old = list(set(wold) - set(ptncold))
+
+        if pidcompute and sst:
+            return citset, pastset, titset, pidimmediateset, pidpastset, sstpastset, datasize, dimsize
+        elif pidcompute and not sst:
+            return citset, pastset, titset, pidimmediateset, pidpastset, datasize, dimsize
+        elif not pidcompute and sst:
+            return citset, pastset, titset, sstpastset, datasize, dimsize
+        else:
+            return citset, pastset, titset, datasize, dimsize
+
+
+    def compute_cit_approx_set(self, sources, target, taumax, pidcompute=False, sst=False, verbosity=1):
+        """Compute the approximate cumulative information transfer from source_ind_set to target_ind with increasing lags up to taumx.
+
+        Input:
+        sources     -- a list of source nodes [[set (var_index, lag)]]
+        target      -- the target node [set (var_index, lag)]
+
+        """
+        data    = self.data
+        base    = self.base
+        approach = self.approach
+        kernel  = self.kernel
+        k       = self.k
+
+        # Initialize
+        citset   = np.zeros(taumax)
+        pastset  = np.zeros(taumax)
+        pidpastset = np.zeros([taumax,4])
+        pidimmediateset = np.zeros([taumax,4])
+        titset   = np.ones(taumax)
+        datasize = np.zeros([taumax,3])
+        dimsize  = np.zeros([taumax,3])
+        if sst:
+            sstpastset = np.zeros([taumax,4])
+
+        # Get the numbers of data points and variables
+        npt, nvar = data.shape
+
+        # Get the parents of the target
+        # which now are all the nodes at the previous time step of the target
+        pt = [(i, target[1]-1) for i in range(nvar)]
+
+        # Compute the total information
+        # Reorganize the data
+        data1 = reorganize_data(data, [target]+pt)
+        data1 = dropna(data1)
+        if data1.shape[0] < 100:
+            print 'Not enough time series datapoints (<100)!'
+            return citset, mitset, miset
+        tit = computeMIKNN(data1, k=k, xyindex=[1]) / np.log(base)
+        titset = tit*titset
+
+        # Get the length of variables in tit
+        datasize[:,0], dimsize[:,0] = data1.shape
+
+        # Compute I and P
+        for i in range(taumax):
+            print ""
+            print "Step, target and sources:"
+            print i, target, sources
+            print ""
+
+            # Get the condition set and the parents of the target in the causal subgraph
+            # which now are all the nodes at the previous time step of the sources
+            lagmax = min([node[1] for node in sources])
+            w      = [(j, lagmax-1) for j in range(nvar)]
+            ptc    = deepcopy(pt)
+
+            # Reorganize the data
+            data21   = reorganize_data(data, [target]+ptc+w)
+            data22   = reorganize_data(data, [target]+w)
+            # Drop the nan values
+            data21   = dropna(data21)
+            data22   = dropna(data22)
+            # Get the length of variables in tit and past
+            datasize[i,1], dimsize[i,1] = data21.shape
+            datasize[i,2], dimsize[i,2] = data22.shape
+            xyindex1 = [1,1+len(ptc)]
+            if data21.shape[0] < 100 or data22.shape[0] < 100:
+                print 'Not enough time series datapoints (<100)!'
+                return citset, mitset, miset
+            citset[i]  = computeCMIKNN(data21, k=k, xyindex=xyindex1) / np.log(base)
+            pastset[i] = computeMIKNN(data22, k=k, xyindex=[1]) / np.log(base)
+
+            print w, pastset[i], citset[i], tit
+
+            # Conduct sst for past
+            if sst:
+                sstpastset[i,:] = independenceSet(target, w, data=data, returnTrue=True,
+                                                  approach=approach, k=k, kernel=kernel, base=base)
+                # print sstpastset[i,:]
+
+            # Conduct PID for past
+            if pidcompute:
+                # Decompose ptc into two parts: (1) the past nodes from the target variable and (2) the remaining
+                auto1 = [node for node in ptc if node[0] == target[0]]
+                if auto1 == [] or len(auto1) == len(ptc):
+                    pidimmediateset[i,:] = np.nan
+                else:
+                    rest1 = list(set(ptc) - set(auto1))
+                    # Reorder w
+                    # print len(auto), len(rest)
+                    ptc = auto1 + rest1
+                    data21 = reorganize_data(data, ptc+[target]+w)
+                    data21 = dropna(data21)
+                    # Conduct PID
+                    # print data22.shape
+                    pidimmediateinfo = info(case=3, data=data21, approach=approach, k=k,
+                                            base=np.e, conditioned=True, xyindex=[len(auto1), len(ptc), len(ptc)+1], deldata=True)
+                    pidimmediateset[i,:] = [pidimmediateinfo.s, pidimmediateinfo.r, pidimmediateinfo.uxz, pidimmediateinfo.uyz]
+
+               # Decompose w into two parts: (1) the past nodes from the target variable and (2) the remaining
+                auto2 = [node for node in w if node[0] == target[0]]
+                if auto2 == [] or len(auto2) == len(w):
+                    # pidpastset[i,:] = [None, None, None, None]
+                    pidpastset[i,:] = np.nan
+                else:
+                    rest = list(set(w) - set(auto2))
+                    # Reorder w
+                    w = auto2 + rest
+                    data22 = reorganize_data(data, w+[target])
+                    data22 = dropna(data22)
+                    # Conduct PID
+                    pidpastinfo = info(case=3, data=data22, approach=approach, k=k,
+                                       base=np.e, conditioned=False, xyindex=[len(auto2), len(w)], deldata=True)
+                    pidpastset[i,:] = [pidpastinfo.s, pidpastinfo.r, pidpastinfo.uxz, pidpastinfo.uyz]
+
+            sources = [(s[0], s[1]-1) for s in sources]
+
+        # Return
+        if pidcompute and sst:
+            return citset, pastset, titset, pidimmediateset, pidpastset, sstpastset, datasize, dimsize
+        elif pidcompute and not sst:
+            return citset, pastset, titset, pidimmediateset, pidpastset, datasize, dimsize
+        elif not pidcompute and sst:
+            return citset, pastset, titset, sstpastset, datasize, dimsize
+        else:
+            return citset, pastset, titset, datasize, dimsize
 
 
 def intersection(lst1, lst2):

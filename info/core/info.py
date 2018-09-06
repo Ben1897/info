@@ -41,7 +41,7 @@ knn_approaches = ['knn', 'knn_cuda', 'knn_scipy', 'knn_sklearn']
 class info(object):
 
     def __init__(self, case, data, approach='kde_c', bandwidth='silverman', kernel='gaussian', k=10,
-                 base=np.e, conditioned=False, specific=False, averaged=True, xyindex=None):
+                 base=np.e, conditioned=False, specific=False, averaged=True, xyindex=None, deldata=True):
         '''
         Input:
         case        -- the number of dimension to be computed [int]
@@ -70,9 +70,10 @@ class info(object):
         if case == 1 and len(data.shape) == 1:
             data = data[:,np.newaxis]
         npts, ndimdata = data.shape
-        if case != ndimdata and not conditioned:
-            raise Exception('The dimension of the variables is %d, not %d!' % (ndimdata, case))
-        elif case >= ndimdata and conditioned:
+        # if case != ndimdata and not conditioned:
+        #     raise Exception('The dimension of the variables is %d, not %d!' % (ndimdata, case))
+        # elif case >= ndimdata and conditioned:
+        if case > ndimdata:
             raise Exception('The dimension of the variables should be larger than %d, not %d!' % (ndimdata, case))
         self.npts = npts
         self.case = case
@@ -134,6 +135,9 @@ class info(object):
         # Assemble all the information values into a Pandas series format
         # self.__assemble()
 
+        if deldata:
+            del self.data
+
     def __check_xyindex(self, xyindex, ndim):
         '''Check the xyz indexing.'''
         conditioned = self.conditioned
@@ -182,7 +186,7 @@ class info(object):
                     if len(xyindex) == 2 and xyindex[0] < xyindex[1] and xyindex[1] <= ndim:
                         self.xlastind, self.ylastind = xyindex[0], xyindex[1]
                     else:
-                        raise Exception('xyindex is not correct for 2D case: ' + str(xyindex))
+                        raise Exception('xyindex is not correct for 3D case: ' + str(xyindex))
             else:
                 raise Exception('Unknown type of xyindex %s' % str(type(xyindex)))
 
@@ -692,7 +696,7 @@ class info(object):
         kxset = np.array([len(treex.query_ball_point(xdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
         kzset = np.array([len(treez.query_ball_point(zdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
         kxyset = np.array([len(treexy.query_ball_point(xydata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
-        kxzset = np.array([len(treexz.query_ball_point(xydata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
+        kxzset = np.array([len(treexz.query_ball_point(xzdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
         kyzset = np.array([len(treeyz.query_ball_point(yzdata[i,:], rset[i]-1e-15, p=float('inf'))) for i in range(npts)])
 
         # # Compute the ball radius of the k nearest neighbor for each data point
@@ -743,6 +747,11 @@ class info(object):
         self.isource = self.ixy / np.min([self.hx, self.hy])              # Is (Eq.(9) in Allison)
         self.rmin    = -self.ii if self.ii < 0 else 0                     # Rmin (Eq.(10) in Allison)
         self.r       = self.rmin + self.isource*(self.rmmi-self.rmin)     # Rs (Eq.(11) in Allison)
+
+        # Compute S(Z;X,Y), U(Z;X) and U(Z;Y)
+        self.s = self.r + self.ii                                           # Sc
+        self.uxz = self.ixz - self.r                                      # U(X;Z|W)
+        self.uyz = self.iyz - self.r                                      # U(Y;Z|W)
 
 
     def __computeInfo3D_conditioned_knn(self):

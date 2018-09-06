@@ -49,6 +49,9 @@ def Lorenz_model(N, dt, e=0., seed=1, init=None, s=10, r=28, b=2.667):
     """The Lorenz model."""
     if seed is not None:
         np.random.seed(1)
+    else:
+        np.random.seed(seed)
+
     trash = 2000
     data = np.zeros([trash+N+1, 3])
 
@@ -64,6 +67,7 @@ def Lorenz_model(N, dt, e=0., seed=1, init=None, s=10, r=28, b=2.667):
     else:
         data[0,:] = np.random.random(3)
 
+
     # Stepping through "time".
     for i in range(trash+N):
         # Derivatives of the X, Y, Z state
@@ -75,6 +79,31 @@ def Lorenz_model(N, dt, e=0., seed=1, init=None, s=10, r=28, b=2.667):
     # print data[:10,:]
     return data[trash:]
 
+def henon_map(N, e=0., seed=1, init=None, a=1.4, b=0.3):
+    """The Lorenz model."""
+    if seed is not None:
+        np.random.seed(1)
+    else:
+        np.random.seed(seed)
+
+    trash = 2000
+    data = np.zeros([trash+N+1, 2])
+
+    # Setting initial values
+    if init is not None:
+        data[0,:] = init
+    else:
+        data[0,:] = np.random.uniform(low=.25, high=.4, size=2)
+
+    print data[0,:]
+
+    # Stepping through "time".
+    for i in range(trash+N):
+        data[i+1,0] = 1 - a*data[i,0]**2 + data[i,1]  + e*np.random.rand()
+        data[i+1,1] = b*data[i,0] + e*np.random.rand()
+
+    # print data[:10,:]
+    return data[trash:]
 
 def fishery_model(N, rxx=3.1, rxt=-.3, ryy=2.9, ryt=-.36, cx=.4, cy=.35):
     """
