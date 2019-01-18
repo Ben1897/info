@@ -22,7 +22,10 @@ class pdfComputer()
 
 
 import numpy as np
-from sklearn.model_selection import GridSearchCV
+try:
+    from sklearn.model_selection import GridSearchCV
+except:
+    from sklearn.grid_search import GridSearchCV
 from sklearn.neighbors.kde import KernelDensity
 
 from .kdetoolkit import kde_c, kde_cuda, kde_cuda_general, kde_sklearn, kde_scipy

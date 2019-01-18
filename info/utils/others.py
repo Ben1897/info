@@ -79,7 +79,7 @@ def normalize(data):
     """Normalize the data by subtracting its mean and dividing it by its std for each dimension.
     data -- [numpy array with shape(npts, ndim)]
     """
-    npts, ndim = data.shape
+    # npts, ndim = data.shape
 
     try:
         isnan = data.isnull().any().any()  # for pandas dataframe
@@ -90,6 +90,10 @@ def normalize(data):
         mean, std = np.nanmean(data, axis=0), np.nanstd(data, axis=0)
     else:
         mean, std = np.mean(data, axis=0), np.std(data, axis=0)
+
+    # print np.all(std == 0)
+    if np.all(std == 0):
+        return data
 
     return (data - mean) / std
 

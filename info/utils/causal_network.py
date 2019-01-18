@@ -17,8 +17,10 @@ class causal_network()
     search_paths()
     check_links()
     search_mit_condition()
+    search_mitp_condition()
     search_mpid_condition()
-    search_cit_elements()
+    search_mpid_set_condition()
+    search_cit_components()
 
 convert_nodes_to_listofset()
 get_node_number()
@@ -36,47 +38,73 @@ exclude_intersection()
 '''
 
 import networkx as nx
+import numpy as np
 
 
 class causal_network(object):
     """A class for causal network."""
 
-    def __init__(self, causalDict, taumax=6):
+    def __init__(self, causalDict, lagfuncs=None, taumax=6):
         """
         Input:
         causalDict -- dictionary of causal relationships, where
                       the keys are the variable at t time [int]
                       the values are the parents of the corresponding node [list of sets].
                       e.g., {0: [(0,-1), (1,-1)], 1: [(0,-2), (1,-1)]}
+        lagfuncs   -- the coupling strength [used for the weights of edges]
         taumax -- the maximum time lag [int]
 
         """
+        var    = causalDict.keys()
+        nvar   = len(var)
+
+        # Get the equally assigned lagfunctions if it does not exist
+        if lagfuncs is None:
+            lagfuncs = np.ones([nvar,nvar,taumax+1])
+        else:
+            lagfuncs = np.copy(lagfuncs)
+
         self.causalDict = causalDict
         self.taumax     = taumax
+        self.originalLagfuncs = np.copy(lagfuncs)
 
         # Create an empty directed graph
         g = nx.DiGraph()
 
         # Assign all the nodes into the directed graph
-        var    = causalDict.keys()
-        nvar   = len(var)
         nnodes = nvar*(taumax+1)
         g.add_nodes_from(range(nnodes))
+
+        # Get the offset of the lags so that all the weights are nonnegative
+        offset = lagfuncs.min() if lagfuncs.min() < 0 else 0
+        lagfuncs -= offset
 
         # Assign all the edges
         for i in range(taumax+1):
             gap           = nvar*i
-            involed_nodes = range(gap, gap+nvar)
+            involved_nodes = range(gap, gap+nvar)
             for j in range(nvar):
-                end = involed_nodes[j]
+                end = involved_nodes[j]
                 for parent in causalDict[j]:
+                    we = lagfuncs[parent[0], j, abs(parent[1])]
+                    # Add the edge
                     start = get_node_number(parent, nvar, gap)
-                    g.add_edge(start, end)
+                    if start < nnodes:
+                        g.add_edge(start, end, weight=we)
 
-        self.var    = var
-        self.nvar   = nvar
-        self.nnodes = g.number_of_nodes()
-        self.g      = g
+        # Assign the weights
+        weights = np.zeros([nnodes, nnodes])
+        for (start, end) in g.edges():
+            if start < nnodes:
+                weights[start, end] = g[start][end]['weight']
+
+        self.var     = var
+        self.nvar    = nvar
+        self.nnodes  = nnodes
+        self.gnnodes = g.number_of_nodes()
+        self.g       = g
+        self.offset  = offset
+        self.weights = weights
 
     def __check_node(self, target):
         """
@@ -208,12 +236,13 @@ class causal_network(object):
             print 'directed link and causal path!'
         return None
 
-    def search_mit_condition(self, source, target, verbosity=1):
+    def search_mit_condition(self, source, target, transitive=False, verbosity=1):
         """
         Find the conditions for calculating the momentary information transfer (MIT) between between a source and a target
         Input:
         source -- the source node [set (var_index, lag)]
         target -- the target node [set (var_index, lag)]
+        transitive -- indicator whether the weighted transitive reduction should be performed [bool]
         Output:
         the condition for MIT [list of sets]
 
@@ -246,12 +275,13 @@ class causal_network(object):
 
         return w
 
-    def search_mitp_condition(self, source, target, verbosity=1):
+    def search_mitp_condition(self, source, target, transitive=False, verbosity=1):
         """
         Find the conditions for calculating the momentary information transfer (MIT) between between a source and a target
         Input:
         source -- the source node [set (var_index, lag)]
         target -- the target node [set (var_index, lag)]
+        transitive -- indicator whether the weighted transitive reduction should be performed [bool]
         Output:
         the condition for MITP [list of sets]
 
@@ -280,7 +310,16 @@ class causal_network(object):
         else:                                              # linked by a causal path
             # Get the causal path and the parent(s) of the causal path of the source
             pcpath, cpath = get_path_nodes_and_their_parents(g, snode, tnode)
-            w = union([pcpath, exclude_intersection(pt, cpath)])
+            w = list(union([pcpath, exclude_intersection(pt, cpath)]))
+
+            # Conduct the weighted transitive reduction on the condition set w if required
+            if transitive:
+                # Get the descendants/children of the w
+                wchild = get_children_from_nodes(g, w)
+                # Get the intersection of the descendants and the cpaths
+                wchild_cpaths = intersect(wchild, cpath)
+                # Get the reduced condition set
+                w = self.transitive_reduction(w, wchild_cpaths)
 
         w = convert_nodes_to_listofset(w, nvar)
 
@@ -291,7 +330,7 @@ class causal_network(object):
 
         return w
 
-    def search_mpid_condition(self, source1, source2, target, verbosity=1):
+    def search_mpid_condition(self, source1, source2, target, transitive=False, verbosity=1):
         """
         Find the conditions for calculating the momentary partial information decomposition (MPID) between two sources and a target.
 
@@ -299,6 +338,7 @@ class causal_network(object):
         source1  -- the first source node [set (var_index, lag)]
         source2  -- the second source node [set (var_index, lag)]
         target   -- the target node [set (var_index, lag)]
+        transitive -- indicator whether the weighted transitive reduction should be performed [bool]
         Output:
         the condition for MPID [list of sets]
 
@@ -338,7 +378,18 @@ class causal_network(object):
         w1 = exclude_intersection(pt, union([cpath1, cpath2]))
         w2 = exclude_intersection(pcpath1, cpath2)
         w3 = exclude_intersection(pcpath2, cpath1)
-        w = union([w1, w2, w3])
+        w = list(union([w1, w2, w3]))
+
+        # Conduct the weighted transitive reduction on the condition set w if required
+        cpaths = list(union([cpaths1, cpaths2]))
+        if transitive:
+            # Get the descendants/children of the w
+            wchild = get_children_from_nodes(g, w)
+            # Get the intersection of the descendants and the cpaths
+            wchild_cpaths = intersect(wchild, cpaths)
+            # Get the reduced condition set
+            # print w
+            w = self.transitive_reduction(w, wchild_cpaths)
 
         w = convert_nodes_to_listofset(w, nvar)
 
@@ -349,7 +400,7 @@ class causal_network(object):
         return w
 
 
-    def search_mpid_set_condition(self, sources1, sources2, target, verbosity=1):
+    def search_mpid_set_condition(self, sources1, sources2, target, transitive=False, verbosity=1):
         """
         Find the conditions for calculating the momentary partial information decomposition (MPID) between two sets of sources and a target.
 
@@ -357,6 +408,7 @@ class causal_network(object):
         sources1 -- a first list of source nodes [[set (var_index, lag)]]
         sources2 -- a second list of source nodes [[set (var_index, lag)]]
         target   -- the target node [set (var_index, lag)]
+        transitive -- indicator whether the weighted transitive reduction should be performed [bool]
         Output:
         the condition for MPID [list of sets]
 
@@ -415,7 +467,18 @@ class causal_network(object):
         w1 = exclude_intersection(pt, union([cpaths1, cpaths2]))
         w2 = exclude_intersection(pcpaths1, cpaths2)
         w3 = exclude_intersection(pcpaths2, cpaths1)
-        w = union([w1, w2, w3])
+        w = list(union([w1, w2, w3]))
+
+        # Conduct the weighted transitive reduction on the condition set w if required
+        cpaths = list(union([cpaths1, cpaths2]))
+        if transitive:
+            # Get the descendants/children of the w
+            wchild = get_children_from_nodes(g, w)
+            # Get the intersection of the descendants and the cpaths
+            wchild_cpaths = intersect(wchild, cpaths)
+            # Get the reduced condition set
+            # print w
+            w = self.transitive_reduction(w, wchild_cpaths)
 
         w = convert_nodes_to_listofset(w, nvar)
 
@@ -426,7 +489,7 @@ class causal_network(object):
         return srcs1, srcs2, w
 
 
-    def search_cit_components(self, sources, target, mpid=False, verbosity=1):
+    def search_cit_components(self, sources, target, mpid=False, transitive=False, verbosity=1):
         """
         Find the elements for calculating the cumulative information transfer (CIT) from sources to the target.
 
@@ -434,6 +497,7 @@ class causal_network(object):
         sources  -- the source nodes [list of sets (var_index, lag)]
         target   -- the target node [set (var_index, lag)]
         mpid     -- indicate whether returning the components for momentary information transfer from multiple sources
+        transitive -- indicator whether the weighted transitive reduction should be performed [bool]
         Output:
         the elements for CIT [list of sets]
 
@@ -448,7 +512,7 @@ class causal_network(object):
             self.__check_node(source)
         self.__check_node(target)
 
-        # Check whether the two sources are linked with the target through causal paths
+        # Check whether each source is linked with the target through causal paths
         for source in sources:
             linktype = self.check_links(source, target, verbosity=0)
             if linktype in ['causalpath', 'directed']:
@@ -482,9 +546,21 @@ class causal_network(object):
         # Get the conditions for AIT
         w1 = exclude_intersection(pt, union(cpaths))
         w2 = exclude_intersection(union(pcpaths), union(cpaths))
-        w  = union([w1, w2])
+        w  = list(union([w1, w2]))
 
-        cpaths = list(union([convert_nodes_to_listofset(cpath, nvar) for cpath in cpaths]))
+        # Conduct the weighted transitive reduction on the condition set w if required
+        cpaths = list(union([cpath for cpath in cpaths]))
+        if transitive:
+            # Get the descendants/children of the w
+            wchild = get_children_from_nodes(g, w)
+            # Get the intersection of the descendants and the cpaths
+            wchild_cpaths = intersect(wchild, cpaths)
+            # Get the reduced condition set
+            # print w
+            w = self.transitive_reduction(w, wchild_cpaths)
+
+        # cpaths = list(union([convert_nodes_to_listofset(cpath, nvar) for cpath in cpaths]))
+        cpaths = convert_nodes_to_listofset(cpaths, nvar)
         w  = convert_nodes_to_listofset(w, nvar)
         ptc = convert_nodes_to_listofset(ptc, nvar)
 
@@ -506,6 +582,61 @@ class causal_network(object):
             return w, sourcesnew, cpaths
         else:
             return w, ptc, cpaths
+
+
+    def transitive_reduction(self, v1, v2):
+        """Conduct the weighted transitive reduction for the edges from the set v1 to the set v2 in the original graph"""
+        # Get the number of nodes and the weights
+        nnodes  = self.nnodes
+        # weights = np.abs(np.copy(self.weights))
+        weights = np.copy(self.weights)
+        v       = range(nnodes)
+
+        # Get the number of nodes in v1 and v2
+        n1, n2 = len(v1), len(v2)
+
+        # Get the indices of v1 and v2 in v
+        v1ind = [v.index(ele) for ele in v1]
+        v2ind = [v.index(ele) for ele in v2]
+        # v1ind, v2ind = np.where(v1==v), np.where(v2==v)
+
+        # Conduct the weighted transitive reduction to get the revised weights
+        weights_new = np.copy(weights)
+        for k in range(nnodes):
+            weights_old = np.copy(weights_new)
+            for i in range(nnodes):
+                for j in range(nnodes):
+                    we = weights_old[i,j]
+                    wek1, wek2 = weights_old[i,k], weights_old[k,j]
+                    weights_new[i,j] = max(we, min(wek1,wek2))
+
+        weights[weights_new > weights] = 0.
+
+        # for node1 in v1ind:
+        #     for node2 in v2ind:
+        #         we = weights[node1, node2]
+        #         if we == 0:
+        #             continue
+        #         else:
+        #             wenew = np.copy(we)
+        #             for node in range(nnodes):
+        #                 wek1, wek2 = weights[node1, node], weights[node, node2]
+        #                 wenew = max(wenew, min(wek1, wek2))
+        #                 if wenew > we:
+        #                     weights[node1, node2] = 0
+        #                     continue
+
+        # Revise v1 based on the revised weights such that any nodes in v1 not directly influencing nodes in v2 is excluded
+        v1remove = []
+        for i in range(n1):
+            wen1 = weights[v1ind[i], v2ind]
+            # wen2 = self.weights[v1ind[i], v2ind]
+            # print wen1, wen2
+            if sum(wen1) == 0:
+                v1remove.append(v1[i])
+
+        # Return
+        return list(set(v1) - set(v1remove))
 
 
 # Help functions
@@ -602,6 +733,7 @@ def intersect(a, b):
 def union(alist):
     """ return the union of multiple lists """
     return set().union(*alist)
+
 
 def exclude_intersection(a, b):
     """ return the subset of a which does not belong to b."""

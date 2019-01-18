@@ -3,3 +3,5 @@
 *.o
 .ftpconfig_backup
 .projectile
+environment-1.yml
+environment-2.yml

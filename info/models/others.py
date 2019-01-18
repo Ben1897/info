@@ -79,6 +79,42 @@ def Lorenz_model(N, dt, e=0., seed=1, init=None, s=10, r=28, b=2.667):
     # print data[:10,:]
     return data[trash:]
 
+
+def trivariate_OU(N, dt, e=0., seed=1, init=None, tet=None, rho=1., trash=None):
+    """The trivariate Ornstein-Uhlenbeck process model."""
+    if seed is not None:
+        np.random.seed(1)
+    else:
+        np.random.seed(seed)
+
+    if trash is None:
+        trash = 2000
+    data = np.zeros([trash+N+1, 3])
+
+    def lorenzele(x, y, z, tet=None):
+        x_dot = tet[0,0]*x + tet[0,1]*y + tet[0,2]*z
+        y_dot = tet[1,0]*x + tet[1,1]*y + tet[1,2]*z
+        z_dot = tet[2,0]*x + tet[2,1]*y + tet[2,2]*z
+        return x_dot, y_dot, z_dot
+
+    # Setting initial values
+    if init is not None:
+        data[0,:] = init
+    else:
+        data[0,:] = np.random.random(3)
+
+    # Stepping through "time".
+    for i in range(trash+N):
+        # Derivatives of the X, Y, Z state
+        x_dot, y_dot, z_dot = lorenzele(data[i,0], data[i,1], data[i,2], tet=tet)
+        data[i+1,0] += data[i,0] + (x_dot * dt) + rho*np.random.rand()*dt
+        data[i+1,1] += data[i,1] + (y_dot * dt) + rho*np.random.rand()*dt
+        data[i+1,2] += data[i,2] + (z_dot * dt) + rho*np.random.rand()*dt
+
+    # print data[:10,:]
+    return data[trash:]
+
+
 def henon_map(N, e=0., seed=1, init=None, a=1.4, b=0.3):
     """The Lorenz model."""
     if seed is not None:
