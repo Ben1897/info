@@ -61,6 +61,7 @@ class causal_network(object):
         # Get the equally assigned lagfunctions if it does not exist
         if lagfuncs is None:
             lagfuncs = np.ones([nvar,nvar,taumax+1])
+            print 1
         else:
             lagfuncs = np.copy(lagfuncs)
 
@@ -489,7 +490,7 @@ class causal_network(object):
         return srcs1, srcs2, w
 
 
-    def search_cit_components(self, sources, target, mpid=False, transitive=False, verbosity=1):
+    def search_cit_components(self, sources, target, mpid=False, transitive=False, returnRemovedEdges=False, verbosity=1):
         """
         Find the elements for calculating the cumulative information transfer (CIT) from sources to the target.
 
@@ -557,7 +558,11 @@ class causal_network(object):
             wchild_cpaths = intersect(wchild, cpaths)
             # Get the reduced condition set
             # print w
-            w = self.transitive_reduction(w, wchild_cpaths)
+            if returnRemovedEdges:
+                w, edges = self.transitive_reduction(w, wchild_cpaths, True)
+                edges = [(get_node_set(edge[0],nvar), get_node_set(edge[1],nvar)) for edge in edges]
+            else:
+                w = self.transitive_reduction(w, wchild_cpaths)
 
         # cpaths = list(union([convert_nodes_to_listofset(cpath, nvar) for cpath in cpaths]))
         cpaths = convert_nodes_to_listofset(cpaths, nvar)
@@ -579,17 +584,25 @@ class causal_network(object):
             print ""
 
         if mpid:
-            return w, sourcesnew, cpaths
+            if transitive and returnRemovedEdges:
+                return w, sourcesnew, cpaths, edges
+            else:
+                return w, sourcesnew, cpaths
         else:
-            return w, ptc, cpaths
+            if transitive and returnRemovedEdges:
+                return w, ptc, cpaths, edges
+            else:
+                return w, ptc, cpaths
 
 
-    def transitive_reduction(self, v1, v2):
+    def transitive_reduction(self, v1, v2, returnRemovedEdges=False):
         """Conduct the weighted transitive reduction for the edges from the set v1 to the set v2 in the original graph"""
         # Get the number of nodes and the weights
         nnodes  = self.nnodes
+        g, nvar = self.g, self.nvar
         # weights = np.abs(np.copy(self.weights))
         weights = np.copy(self.weights)
+        weightso= np.copy(self.weights)
         v       = range(nnodes)
 
         # Get the number of nodes in v1 and v2
@@ -635,8 +648,20 @@ class causal_network(object):
             if sum(wen1) == 0:
                 v1remove.append(v1[i])
 
+        if returnRemovedEdges:
+            edgeremove = []
+            for i in range(n1):
+                for j in range(n2):
+                    we1 = weights[v1ind[i], v2ind[j]]
+                    we1o= weightso[v1ind[i], v2ind[j]]
+                    if we1 < we1o:
+                        edgeremove.append((v1[i],v2[j]))
+
         # Return
-        return list(set(v1) - set(v1remove))
+        if returnRemovedEdges:
+            return list(set(v1) - set(v1remove)), edgeremove
+        else:
+            return list(set(v1) - set(v1remove))
 
 
 # Help functions

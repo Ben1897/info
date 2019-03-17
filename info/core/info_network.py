@@ -20,7 +20,7 @@ knn_approaches_p = ['knn_scipy', 'knn_sklearn', 'knn']
 
 class info_network(object):
 
-    def __init__(self, data, causalDict, lagfuncs,
+    def __init__(self, data, causalDict, lagfuncs=None,
                  taumax=10,
                  approach='knn',
                  kernel='gaussian',  # parameters for KDE
@@ -50,8 +50,6 @@ class info_network(object):
         self.approach = approach
         self.kernel = kernel
         self.k      = k
-        lagfuncs = np.copy(lagfuncs)
-        self.lagfuncs = np.copy(lagfuncs)
         self.causalApprox = causalApprox
 
         # Check whether the number of variables are larger than 1
@@ -63,6 +61,7 @@ class info_network(object):
         self.causalDict         = causalDict
         self.originalCausalDict = deepcopy(causalDict)
         self.originalNetwork    = causal_network(self.originalCausalDict, lagfuncs, taumax)
+        self.lagfuncs           = np.copy(self.originalNetwork.originalLagfuncs)
 
         # Generate the causal network
         if causalApprox:
