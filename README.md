@@ -1,16 +1,21 @@
-# An Information-Theoretic Framework for Complex System Analysis
-================================================================
+# An Information-Theoretic Framework for Causal History Analysis in Complex System Dynamics
+===========================================================================================
 
 ## Introduction
-This is an open-source program for evaluating the dynamics of complex system by using an information-theoretic framework based on time series observations.
+This is an open-source program for evaluating the dynamics of complex system dynamics by using a recently-proposed causal history analysis framework.
 
 ## References
 - Jiang, P., & Kumar, P. (2018). Interactions of information transfer along separable causal paths. Physical Review E, 97(4), 042310.
-- Jiang, P., & Kumar, P. (2018). Information transfer from causal history in complex system dynamics. Physical Review E, in review.
+- Jiang, P., & Kumar, P. (2019). Information transfer from causal history in complex system dynamics. Physical Review E, 99(1), 012306.
+- Jiang, P., & Kumar, P. (2019). Using information flow for whole system understanding from component dynamics. in preparation.
 
 ## Requirements
 1. Add the folder into your environment variable PYTHONPATH.
 2. Install required python packages using *pip*: `pip install -r requirements.txt`.
+2. Create the environment from the `environment.yml` file by:
+```
+conda env create -f environment.yml
+```
 3. Generate the dynamic libraries for the Kernal Density Estimation (KDE) GPU by:
 ```
 cd [info_folder]/info/info/utils/
@@ -25,7 +30,6 @@ make clean; make
 ```
 cp [knn-folder]/knn.so [info-folder]/info/info/utils/
 ```
-6. [TODO] make file for pdf estimation codes
 
 ## License
 This software is freeware and is released under GNU GPL. See LICENSE file for more information.
