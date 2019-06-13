@@ -100,10 +100,10 @@ class info_network(object):
             newcausalDict[j] = pa_new
 
         if verbosity:
-            print ""
-            print "The approximated causalDict is:"
-            print newcausalDict
-            print ""
+            print("")
+            print("The approximated causalDict is:")
+            print(newcausalDict)
+            print("")
 
         # Update causalDict
         self.causalDict = newcausalDict
@@ -148,10 +148,10 @@ class info_network(object):
             newcausalDict[j] = pa_new
 
         if verbosity:
-            print ""
-            print "The updated causalDict is:"
-            print newcausalDict
-            print ""
+            print("")
+            print("The updated causalDict is:")
+            print(newcausalDict)
+            print("")
 
         # Update causalDict
         self.causalDict = newcausalDict
@@ -203,10 +203,10 @@ class info_network(object):
             newcausalDict[j] = pa_new
 
         if verbosity:
-            print ""
-            print "The updated causalDict is:"
-            print newcausalDict
-            print ""
+            print("")
+            print("The updated causalDict is:")
+            print(newcausalDict)
+            print("")
 
         # Update causalDict
         self.causalDict = newcausalDict
@@ -303,7 +303,7 @@ class info_network(object):
         # Drop the nan values
         data1 = dropna(data1)
         if data1.shape[0] < 100:
-            print 'Not enough time series datapoints (<100)!'
+            print('Not enough time series datapoints (<100)!')
             return 0.
         inforesult = computeMIKNN(data1, k=k, xyindex=[1]) / np.log(base)
 
@@ -347,7 +347,7 @@ class info_network(object):
         # Get the parents of the target from the source variable
         pts = [p for p in pt if p[0] == source_ind]
         if not pts:
-            if verbosity: print "Source variable %d does not influence the target %d" % (source_ind, target_ind)
+            if verbosity: print("Source variable %d does not influence the target %d" % (source_ind, target_ind))
             if sst:
                 return 0., True
             else:
@@ -360,7 +360,7 @@ class info_network(object):
             # Drop the nan values
             data1   = dropna(data1)
             if data1.shape[0] < 100:
-                print 'Not enough time series datapoints (<100)!'
+                print('Not enough time series datapoints (<100)!')
                 return 0.
             inforesult = computeMIKNN(data1, k=k, xyindex=[1]) / np.log(base)
 
@@ -432,7 +432,7 @@ class info_network(object):
 
         # Check whether the two nodes are linked
         if network.check_links(source, target, verbosity=0) not in ['causalpath', 'directed']:
-            print "The source %s and the target %s are not linked through a causal path or a contemporaneous link!" % (source, target)
+            print("The source %s and the target %s are not linked through a causal path or a contemporaneous link!" % (source, target))
             return None
 
         # Generate the MIT/MITP conditions
@@ -499,10 +499,10 @@ class info_network(object):
 
         # Check whether each source node is linked with the target through a causal path
         if network.check_links(source1, target, verbosity=verbosity) not in ['causalpath', 'directed']:
-            print "The source %s and the target %s are not linked through a causal path!" % (source1, target)
+            print("The source %s and the target %s are not linked through a causal path!" % (source1, target))
             return None
         if network.check_links(source2, target, verbosity=verbosity) not in ['causalpath', 'directed']:
-            print "The source %s and the target %s are not linked through a causal path!" % (source2, target)
+            print("The source %s and the target %s are not linked through a causal path!" % (source2, target))
             return None
 
         # Generate the MIT/MITP conditions
@@ -559,20 +559,20 @@ class info_network(object):
         try:
             w, srcc, cpaths = network.search_cit_components(sources, target, mpid=True, transitive=transitive, verbosity=verbosity)
         except:
-            print "Warning:!!!"
-            print network.search_cit_components(sources, target, transitive=transitive)
+            print("Warning:!!!")
+            print(network.search_cit_components(sources, target, transitive=transitive))
             return None
 
         # Reorganize the data
         data1 = reorganize_data(data, [target]+srcc+w)
-        # print data1.shape
+        # print(data1.shape)
 
         # Drop the nan values
         data1 = dropna(data1)
         xyindex1 = [1,1+len(srcc)]
-        # print data21.shape, data22.shape
+        # print(data21.shape, data22.shape)
         if data1.shape[0] < 100:
-            print 'Not enough time series datapoints (<100)!'
+            print('Not enough time series datapoints (<100)!')
             return None
 
         # Compute the information from the immediate causal history and distant causal history
@@ -627,14 +627,14 @@ class info_network(object):
 
         # Reorganize the data
         data1 = reorganize_data(data, [target]+srcc+w)
-        # print data1.shape
+        # print(data1.shape)
 
         # Drop the nan values
         data1 = dropna(data1)
         xyindex1 = [1,1+len(srcc)]
-        # print data21.shape, data22.shape
+        # print(data21.shape, data22.shape)
         if data1.shape[0] < 100:
-            print 'Not enough time series datapoints (<100)!'
+            print('Not enough time series datapoints (<100)!')
             return None
 
         # Compute the information from the immediate causal history and distant causal history
@@ -682,12 +682,12 @@ class info_network(object):
         try:
             srcs1, srcs2, w = network.search_mpid_set_condition(sources1, sources2, target, transitive=transitive, verbosity=verbosity)
         except:
-            print "Warning:!!!"
-            print network.search_mpid_set_condition(sources1, sources2, target, transitive=transitive, verbosity=verbosity)
+            print("Warning:!!!")
+            print(network.search_mpid_set_condition(sources1, sources2, target, transitive=transitive, verbosity=verbosity))
             return None
 
         if len(srcs1) == 0 or len(srcs2) == 0:
-            print "No causal paths to the target from one of the source set."
+            print("No causal paths to the target from one of the source set.")
             return None
 
         ####################################################################
@@ -751,7 +751,7 @@ class info_network(object):
         w = [(i, lagmax-1) for i in range(nvar)]
 
         if len(srcs1) == 0 or len(srcs2) == 0:
-            print "No causal paths to the target from one of the source set."
+            print("No causal paths to the target from one of the source set.")
             return None
 
         # Reorganize the data
@@ -765,6 +765,184 @@ class info_network(object):
                           kernel=kernel, k=k, base=base, conditioned=True, xyindex=xyindex)
 
         return inforesult
+
+
+    def compute_bundled(self, srcset1, srcset2, target, tau=5, level=1, transitive=True, verbosity=1):
+        """Compute the interaction of information transfer from two bundled sources.
+
+        Input:
+        srcset1 -- the first list of source variables [[var_index]]
+        srcset2 -- the second list of source variables [[var_index]]
+        target  -- the target node [set (var_index, lag)]
+        tau     -- the time lag for separating immediate and distant causal histories
+        level   -- the level of approximation (0: no condition from the rest variables; 1: the 1st order; 2: the 2nd order)
+        transitive -- whether conducting MIWTR [bool]
+        verbosity  -- whehter printing the message [bool]
+
+        """
+        base    = self.base
+        data    = self.data
+        k       = self.k
+        approach = self.approach
+        network = self.network
+        kernel  = self.kernel
+
+        result = {}
+
+        # Get the starting time
+        t0 = -target[1]
+
+        # Get the numbers of data points and variables
+        npt, nvar = data.shape
+
+        # Get the total source variables
+        srcset  = list(set(srcset1+srcset2))
+
+        # Get the parents of the target
+        pt = network.search_parents(target)
+        if verbosity:
+            print("parents of the target:")
+            print(pt)
+
+        # # Get the parents of the target in the source variables
+        # ptc1 = [source for source in pt if source[0] in srcset1]
+        # ptc2 = [source for source in pt if source[0] in srcset2]
+        # ptc  = ptc1 + ptc2
+        # if verbosity:
+        #     print("the representative immediate history:")
+        #     print(ptc)
+
+        # Get the parents of the immediate history, w
+        # Get the parents of the target in the source variables
+        sources1 = [(src, -tau-t0) for src in srcset1]
+        sources2 = [(src, -tau-t0) for src in srcset2]
+        sources = list(set(sources1+sources2))
+        try:
+            # w, _, cpaths = network.search_cit_components(sources, target, transitive=transitive, verbosity=verbosity)
+            w, ptc, f, pwptc, edges, edges2 = network.search_bundled_components(srcset, target, tau, level=level, transitive=transitive,
+                                                       returnRemovedEdges=True, verbosity=verbosity)
+        except:
+            print("Warning:!!!")
+            print(network.search_bundled_components(srcset, target, tau, level=level, transitive=transitive))
+            return None
+
+        if len(ptc) == 0:
+            print("There is no parents of the target in the immediate causal history!")
+            return None
+
+#         # Get the remaining parents of the target
+        # ptr = list(set(pt)-set(ptc))
+        # if verbosity:
+            # print("the parents of the target in the remaining variables:")
+            # print(ptr)
+
+        # # Get the condition set in the remaining variables, f, based on the approximation level
+        # if level == 0 or len(srcset1) + len(srcset2) == nvar:  # 0 order approximation or srcset1 and srcset2 occupy all the variables
+            # f, pw = [], []
+        # elif level == 1:  # 1st order approximation: only consider the remaining parents of the target
+            # pw = []
+            # f = deepcopy(ptr)
+        # elif level == 2:  # 2nd order approximation: consider both the parents of ptc and w and the remaining parents of the target
+            # pw   = [node2 for node1 in w for node2 in network.search_parents(node1) if node2[0] not in srcset]
+            # pptc = [node2 for node1 in ptc for node2 in network.search_parents(node1) if node2[0] not in srcset]
+            # f    = list(set(pw+pptc+ptr))
+        # if verbosity:
+            # print("the condition set from the remaining variables:")
+            # print(f)
+
+        # Compute the total information
+        data1 = reorganize_data(data, [target]+ptc+f)
+        data1 = dropna(data1)
+        if data1.shape[0] < 100:
+            print('Not enough time series datapoints (<100)!')
+            return None
+        if len(f) == 0:
+            tit = computeMIKNN(data1, k=k, xyindex=[1]) / np.log(base)
+        else:
+            tit = computeCMIKNN(data1, k=k, xyindex=[1, 1+len(ptc)]) / np.log(base)
+
+        # Compute the information from immeidate and distant causal histories
+        # Reorganize the data
+        data21   = reorganize_data(data, [target]+ptc+f+w)
+        data22   = reorganize_data(data, [target]+w+f)
+        # Drop the nan values
+        data21   = dropna(data21)
+        data22   = dropna(data22)
+        if data21.shape[0] < 100 or data22.shape[0] < 100:
+            print('Not enough time series datapoints (<100)!')
+            return None
+        if len(f) == 0 and len(w) == 0:
+            cit  = computeMIKNN(data21, k=k, xyindex=[1]) / np.log(base) # immediate causal history
+        else:
+            cit  = computeCMIKNN(data21, k=k, xyindex=[1,1+len(ptc)]) / np.log(base) # immediate causal history
+        if len(f) == 0:
+            past = computeMIKNN(data22, k=k, xyindex=[1]) / np.log(base)        # distant causal history
+        else:
+            past = computeCMIKNN(data22, k=k, xyindex=[1,1+len(w)]) / np.log(base)        # distant causal history
+
+        # Compute the PID for the immediate causal history
+        ptc1 = [source for source in ptc if source[0] in srcset1]
+        ptc2 = [source for source in ptc if source[0] in srcset2]
+        if ptc1 == [] or ptc2 == []:
+            pidimmediate = [None, None, None, None]
+        else:
+            # Reorder ptc
+            ptc = ptc1 + ptc2
+            data21 = reorganize_data(data, ptc+[target]+f+w)
+            data21 = dropna(data21)
+            # Conduct PID
+            if len(f) == 0 and len(w) == 0:
+                conditioned, xyindex = False, [len(ptc1), len(ptc)]
+            else:
+                conditioned, xyindex = True, [len(ptc1), len(ptc), len(ptc)+1]
+            pidimmediateinfo = info(case=3, data=data21, approach=approach, k=k,
+                                    base=base, conditioned=conditioned, xyindex=xyindex, deldata=True)
+            pidimmediate = [pidimmediateinfo.s, pidimmediateinfo.r, pidimmediateinfo.uxz, pidimmediateinfo.uyz]
+
+        # Compute the PID for the distant causal history
+        w1 = [node for node in w if node[0] in srcset1]
+        w2 = [node for node in w if node[0] in srcset2]
+        if w1 == [] or w2 == []:
+            pidpast = [None, None, None, None]
+        else:
+            # Rorder w
+            w = w1 + w2
+            data22 = reorganize_data(data, w+[target]+f)
+            data22 = dropna(data22)
+            # Conduct PID
+            if len(f) == 0:
+                conditioned, xyindex = False, [len(w1), len(w)]
+            else:
+                conditioned, xyindex = True, [len(w1), len(w), len(w)+1]
+            pidpastinfo = info(case=3, data=data22, approach=approach, k=k,
+                               base=base, conditioned=conditioned, xyindex=xyindex, deldata=True)
+            pidpast = [pidpastinfo.s, pidpastinfo.r, pidpastinfo.uxz, pidpastinfo.uyz]
+
+        # Compute the PID for the entire causal history
+        if ptc1 == [] or ptc2 == []:
+            pidtit = [None, None, None, None]
+        else:
+            # Reorder ptc
+            ptc = ptc1 + ptc2
+            data1 = reorganize_data(data, ptc+[target]+f)
+            data1 = dropna(data1)
+            # Conduct PID
+            if len(f) == 0:
+                conditioned, xyindex = False, [len(ptc1), len(ptc)]
+            else:
+                conditioned, xyindex = True, [len(ptc1), len(ptc), len(ptc)+1]
+            pidtitinfo = info(case=3, data=data21, approach=approach, k=k,
+                             base=base, conditioned=conditioned, xyindex=xyindex, deldata=True)
+            pidtit = [pidimmediateinfo.s, pidimmediateinfo.r, pidimmediateinfo.uxz, pidimmediateinfo.uyz]
+
+        # Save the results and return
+        result['tit'], result['cit'], result['past'] = tit, cit, past
+        result['pidimmediate'], result['pidpast']    = pidimmediate, pidpast
+        result['pidtotal'] = pidtit
+        result['datasize'] = np.array([data1.shape[0], data21.shape[0], data22.shape[0]])
+        result['dimsize']  = np.array([data1.shape[1], data21.shape[1], data22.shape[1]])
+        result['elements'] = {'w':w, 'ptc':ptc, 'f':f, 'pwptc':pwptc, 'removedEdges': edges+edges2}
+        return result
 
 
     def compute_cit(self, sources, target, transitive=False, sst=False, pidcompute=False, approxDistant=False, verbosity=1):
@@ -802,7 +980,7 @@ class info_network(object):
         data1 = dropna(data1)
         if data1.shape[0] < 100:
             print 'Not enough time series datapoints (<100)!'
-            return citset, mitset, miset
+            return None
         tit = computeMIKNN(data1, k=k, xyindex=[1]) / np.log(base)
         # print data1
 
@@ -883,7 +1061,7 @@ class info_network(object):
                 # Conduct PID
                 # print data22.shape
                 pidimmediateinfo = info(case=3, data=data21, approach=approach, k=k,
-                                        base=np.e, conditioned=True, xyindex=[len(auto1), len(ptc), len(ptc)+1], deldata=True)
+                                        base=base, conditioned=True, xyindex=[len(auto1), len(ptc), len(ptc)+1], deldata=True)
                 pidimmediate = [pidimmediateinfo.s, pidimmediateinfo.r, pidimmediateinfo.uxz, pidimmediateinfo.uyz]
 
             # Decompose w into two parts: (1) the past nodes from the target variable and (2) the remaining
@@ -901,7 +1079,7 @@ class info_network(object):
                 # Conduct PID
                 # print data22.shape
                 pidpastinfo = info(case=3, data=data22, approach=approach, k=k,
-                                   base=np.e, conditioned=False, xyindex=[len(auto2), len(w)], deldata=True)
+                                   base=base, conditioned=False, xyindex=[len(auto2), len(w)], deldata=True)
                 pidpast = [pidpastinfo.s, pidpastinfo.r, pidpastinfo.uxz, pidpastinfo.uyz]
 
             result['pidimmediate'], result['pidpast'] = pidimmediate, pidpast
@@ -992,7 +1170,7 @@ class info_network(object):
                 data21 = dropna(data21)
                 # Conduct PID
                 pidimmediateinfo = info(case=3, data=data21, approach=approach, k=k,
-                                        base=np.e, conditioned=True, xyindex=[len(auto1), len(ptc), len(ptc)+1], deldata=True)
+                                        base=base,conditioned=True, xyindex=[len(auto1), len(ptc), len(ptc)+1], deldata=True)
                 pidimmediate = [pidimmediateinfo.s, pidimmediateinfo.r, pidimmediateinfo.uxz, pidimmediateinfo.uyz]
 
             # Decompose w into two parts: (1) the past nodes from the target variable and (2) the remaining
@@ -1009,7 +1187,7 @@ class info_network(object):
                 # Conduct PID
                 # print data22.shape
                 pidpastinfo = info(case=3, data=data22, approach=approach, k=k,
-                                   base=np.e, conditioned=False, xyindex=[len(auto2), len(w)], deldata=True)
+                                   base=base,conditioned=False, xyindex=[len(auto2), len(w)], deldata=True)
                 pidpast = [pidpastinfo.s, pidpastinfo.r, pidpastinfo.uxz, pidpastinfo.uyz]
 
             result['pidimmediate'], result['pidpast'] = pidimmediate, pidpast
@@ -1428,6 +1606,180 @@ class info_network(object):
         return mitpset
 
 
+    def compute_bundled_set(self, srcset1, srcset2, target, taumax, level=1, transitive=True, verbosity=1):
+        """Compute the interaction of information transfer from two bundled sources with increasing lags upt to taumax.
+
+        Input:
+        srcset1 -- the first list of source variables [[var_index]]
+        srcset2 -- the second list of source variables [[var_index]]
+        target  -- the target node [set (var_index, lag)]
+        taumax  -- the maximum time lag for separating immediate and distant causal histories [int]
+        level   -- the level of approximation (1: the 1st order; 2: the 2nd order)
+        transitive -- whether conducting MIWTR [bool]
+        verbosity  -- whehter printing the message [bool]
+
+        """
+        base    = self.base
+        data    = self.data
+        k       = self.k
+        approach = self.approach
+        network = self.network
+        kernel  = self.kernel
+        npt, nvar = data.shape
+
+        result = {}
+
+        # Initialize
+        citset   = np.zeros(taumax)
+        pastset  = np.zeros(taumax)
+        titset   = np.ones(taumax)
+        pidtitset = np.zeros([taumax,4])
+        pidpastset = np.zeros([taumax,4])
+        pidimmediateset = np.zeros([taumax,4])
+        datasize = np.zeros([taumax,3])
+        dimsize  = np.zeros([taumax,3])
+
+        # Get the maximum lag in causalDict
+        paset = [pa for pset in self.causalDict.values() for pa in pset]
+        mpl = np.max([-pr[1] for pr in paset])
+        print mpl
+
+        w, f, ptc, pw = [], [], [], []
+        # Compute the information transfer
+        for i in range(taumax):
+            tau = i+1
+            if tau <= mpl:
+                result_i = self.compute_bundled(srcset1, srcset2, target, tau, level=level, transitive=transitive, verbosity=verbosity)
+                citset[i], pastset[i], titset[i] = result_i['cit'], result_i['past'], result_i['tit']
+                pidtitset[i,:]  = result_i['pidtotal']
+                pidpastset[i,:] = result_i['pidpast']
+                pidimmediateset[i,:] = result_i['pidimmediate']
+                datasize[i,:] = result_i['datasize']
+                dimsize[i,:] = result_i['dimsize']
+                w, f, ptc, pwptc = result_i['elements']['w'], result_i['elements']['f'], result_i['elements']['ptc'], result_i['elements']['pwptc']
+
+            else:
+                w = [(n[0], n[1]-1) for n in w]
+                pw = [(n[0], n[1]-1) for n in pw]
+                f1 = list(set(f) - set(w))
+                f  =  f1 + pw
+                # f = [(n[0], n[1]-1) for n in f]
+                # ptc = [(n[0], n[1]-1) for n in ptc]
+
+                # Compute the total information
+                data1 = reorganize_data(data, [target]+ptc+f)
+                data1 = dropna(data1)
+                if data1.shape[0] < 100:
+                    print('Not enough time series datapoints (<100)!')
+                    return None
+                if len(f) == 0:
+                    tit = computeMIKNN(data1, k=k, xyindex=[1]) / np.log(base)
+                else:
+                    tit = computeCMIKNN(data1, k=k, xyindex=[1, 1+len(ptc)]) / np.log(base)
+
+                # Compute the information from immeidate and distant causal histories
+                # Reorganize the data
+                data21   = reorganize_data(data, [target]+ptc+f+w)
+                data22   = reorganize_data(data, [target]+w+f)
+                # Drop the nan values
+                data21   = dropna(data21)
+                data22   = dropna(data22)
+                if data21.shape[0] < 100 or data22.shape[0] < 100:
+                    print('Not enough time series datapoints (<100)!')
+                    return None
+                if len(f) == 0 and len(w) == 0:
+                    cit  = computeMIKNN(data21, k=k, xyindex=[1]) / np.log(base) # immediate causal history
+                else:
+                    cit  = computeCMIKNN(data21, k=k, xyindex=[1,1+len(ptc)]) / np.log(base) # immediate causal history
+                if len(f) == 0:
+                    past = computeMIKNN(data22, k=k, xyindex=[1]) / np.log(base)        # distant causal history
+                else:
+                    past = computeCMIKNN(data22, k=k, xyindex=[1,1+len(w)]) / np.log(base)        # distant causal history
+
+                # Compute the PID for the immediate causal history
+                ptc1 = [source for source in ptc if source[0] in srcset1]
+                ptc2 = [source for source in ptc if source[0] in srcset2]
+                if ptc1 == [] or ptc2 == []:
+                    pidimmediate = [None, None, None, None]
+                else:
+                    # Reorder ptc
+                    ptc = ptc1 + ptc2
+                    data21 = reorganize_data(data, ptc+[target]+f+w)
+                    data21 = dropna(data21)
+                    # Conduct PID
+                    if len(f) == 0 and len(w) == 0:
+                        conditioned, xyindex = False, [len(ptc1), len(ptc)]
+                    else:
+                        conditioned, xyindex = True, [len(ptc1), len(ptc), len(ptc)+1]
+                    pidimmediateinfo = info(case=3, data=data21, approach=approach, k=k,
+                                            base=base, conditioned=conditioned, xyindex=xyindex, deldata=True)
+                    pidimmediate = [pidimmediateinfo.s, pidimmediateinfo.r, pidimmediateinfo.uxz, pidimmediateinfo.uyz]
+
+                # Compute the PID for the distant causal history
+                w1 = [node for node in w if node[0] in srcset1]
+                w2 = [node for node in w if node[0] in srcset2]
+                if w1 == [] or w2 == []:
+                    pidpast = [None, None, None, None]
+                else:
+                    # Rorder w
+                    w = w1 + w2
+                    data22 = reorganize_data(data, w+[target]+f)
+                    data22 = dropna(data22)
+                    # Conduct PID
+                    if len(f) == 0:
+                        conditioned, xyindex = False, [len(w1), len(w)]
+                    else:
+                        conditioned, xyindex = True, [len(w1), len(w), len(w)+1]
+                    pidpastinfo = info(case=3, data=data22, approach=approach, k=k,
+                                       base=base, conditioned=conditioned, xyindex=xyindex, deldata=True)
+                    pidpast = [pidpastinfo.s, pidpastinfo.r, pidpastinfo.uxz, pidpastinfo.uyz]
+
+                # Compute the PID for the entire causal history
+                if ptc1 == [] or ptc2 == []:
+                    pidtit = [None, None, None, None]
+                else:
+                    # Reorder ptc
+                    ptc = ptc1 + ptc2
+                    data1 = reorganize_data(data, ptc+[target]+f)
+                    data1 = dropna(data1)
+                    # Conduct PID
+                    if len(f) == 0:
+                        conditioned, xyindex = False, [len(ptc1), len(ptc)]
+                    else:
+                        conditioned, xyindex = True, [len(ptc1), len(ptc), len(ptc)+1]
+                    pidtitinfo = info(case=3, data=data21, approach=approach, k=k,
+                                      base=base, conditioned=conditioned, xyindex=xyindex, deldata=True)
+                    pidtit = [pidimmediateinfo.s, pidimmediateinfo.r, pidimmediateinfo.uxz, pidimmediateinfo.uyz]
+
+                # Assign the values
+                citset[i], pastset[i], titset[i] = cit, past, tit
+                pidtitset[i,:]  = pidtit
+                pidpastset[i,:] = pidpast
+                pidimmediateset[i,:] = pidimmediate
+                datasize[i,:] = np.array([data1.shape[0], data21.shape[0], data22.shape[0]])
+                dimsize[i,:]  = np.array([data1.shape[1], data21.shape[1], data22.shape[1]])
+
+            if verbosity:
+                print ''
+                print i
+                print w
+                print pwptc
+                print f
+                print ptc
+                print(tau <= mpl)
+
+        result['tit'] = titset
+        result['cit'] = citset
+        result['past'] = pastset
+        result['pidtotal'] = pidtitset
+        result['pidimmediate'] = pidimmediateset
+        result['pidpast'] = pidpastset
+        result['datasize'] = datasize
+        result['dimsize'] = dimsize
+
+        return result
+
+
     def compute_cit_set(self, sources, target, taumax, pidcompute=False, sst=False, approxDistant=False, transitive=False, verbosity=1):
         """Compute the cumulative information transfer from source_ind_set to target_ind with increasing lags up to taumax.
 
@@ -1509,7 +1861,7 @@ class info_network(object):
                 data20 = dropna(data20)
                 # Conduct PID
                 pidtotalinfo = info(case=3, data=data20, approach=approach, k=k,
-                                    base=np.e, conditioned=False, xyindex=[len(autot), len(pt)], deldata=True)
+                                    base=base, conditioned=False, xyindex=[len(autot), len(pt)], deldata=True)
                 pidtitset = np.tile([pidtotalinfo.s, pidtotalinfo.r, pidtotalinfo.uxz, pidtotalinfo.uyz], [taumax, 1])
 
 
@@ -1631,7 +1983,7 @@ class info_network(object):
                     # Conduct PID
                     # print data22.shape
                     pidimmediateinfo = info(case=3, data=data21, approach=approach, k=k,
-                                            base=np.e, conditioned=True, xyindex=[len(auto1), len(ptc), len(ptc)+1], deldata=True)
+                                            base=base, conditioned=True, xyindex=[len(auto1), len(ptc), len(ptc)+1], deldata=True)
                     pidimmediateset[i,:] = [pidimmediateinfo.s, pidimmediateinfo.r, pidimmediateinfo.uxz, pidimmediateinfo.uyz]
 
                     # Decompose w into two parts: (1) the past nodes from the target variable and (2) the remaining
@@ -1647,7 +1999,7 @@ class info_network(object):
                     data22 = dropna(data22)
                     # Conduct PID
                     pidpastinfo = info(case=3, data=data22, approach=approach, k=k,
-                                       base=np.e, conditioned=False, xyindex=[len(auto2), len(w)], deldata=True)
+                                       base=base, conditioned=False, xyindex=[len(auto2), len(w)], deldata=True)
                     pidpastset[i,:] = [pidpastinfo.s, pidpastinfo.r, pidpastinfo.uxz, pidpastinfo.uyz]
 
             sources = [(s[0], s[1]-1) for s in sources]
@@ -1728,7 +2080,7 @@ class info_network(object):
                 data20 = dropna(data20)
                 # Conduct PID
                 pidtotalinfo = info(case=3, data=data20, approach=approach, k=k,
-                                    base=np.e, conditioned=False, xyindex=[len(autot), len(pt)], deldata=True)
+                                    base=base, conditioned=False, xyindex=[len(autot), len(pt)], deldata=True)
                 pidtitset = np.tile([pidtotalinfo.s, pidtotalinfo.r, pidtotalinfo.uxz, pidtotalinfo.uyz], [taumax, 1])
 
         # Get the length of variables in tit
@@ -1787,7 +2139,7 @@ class info_network(object):
                     # Conduct PID
                     # print data22.shape
                     pidimmediateinfo = info(case=3, data=data21, approach=approach, k=k,
-                                            base=np.e, conditioned=True, xyindex=[len(auto1), len(ptc), len(ptc)+1], deldata=True)
+                                            base=base, conditioned=True, xyindex=[len(auto1), len(ptc), len(ptc)+1], deldata=True)
                     pidimmediateset[i,:] = [pidimmediateinfo.s, pidimmediateinfo.r, pidimmediateinfo.uxz, pidimmediateinfo.uyz]
 
                # Decompose w into two parts: (1) the past nodes from the target variable and (2) the remaining
@@ -1803,7 +2155,7 @@ class info_network(object):
                     data22 = dropna(data22)
                     # Conduct PID
                     pidpastinfo = info(case=3, data=data22, approach=approach, k=k,
-                                       base=np.e, conditioned=False, xyindex=[len(auto2), len(w)], deldata=True)
+                                       base=base, conditioned=False, xyindex=[len(auto2), len(w)], deldata=True)
                     pidpastset[i,:] = [pidpastinfo.s, pidpastinfo.r, pidpastinfo.uxz, pidpastinfo.uyz]
 
             sources = [(s[0], s[1]-1) for s in sources]

@@ -116,7 +116,7 @@ sizedim_to_save = {"dimsize":dimsize, "datasize":datasize}
 ####################
 # Save the results #
 ####################
-infofilename = './simulated_results/info_logistic_noise03.npy'
+infofilename = './info_logistic_noise03.npy'
 
 what_to_save = {"info":infoset, "pid":pidset, "sstpast":sstpastset, "sizedim":sizedim_to_save,
                 "transitive": transitive, "knn":knn, "para": para}

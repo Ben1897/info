@@ -1232,7 +1232,8 @@ def computeEntropyKNN(npts, ndim, kset, radiusset, base=np.e):
     from scipy.special import digamma
 
     # Compute the volumn of ndim dimension (maximum norm)
-    vdx = 2.**ndim
+    # vdx = 2.**ndim
+    vdx = 1.
 
     # Compute the radius term
     # pdfs_log  = np.ma.log(pdfs)

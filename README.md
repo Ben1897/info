@@ -5,13 +5,13 @@
 This is an open-source program for evaluating the dynamics of complex system dynamics by using a recently-proposed causal history analysis framework.
 
 ## References
-- Jiang, P., & Kumar, P. (2018). Interactions of information transfer along separable causal paths. Physical Review E, 97(4), 042310.
-- Jiang, P., & Kumar, P. (2019). Information transfer from causal history in complex system dynamics. Physical Review E, 99(1), 012306.
+- Jiang, P., & Kumar, P. (2019). Bundled interaction from causal history in complex system dynamics. in preparation.
 - Jiang, P., & Kumar, P. (2019). Using information flow for whole system understanding from component dynamics. in preparation.
+- Jiang, P., & Kumar, P. (2019). Information transfer from causal history in complex system dynamics. Physical Review E, 99(1), 012306.
+- Jiang, P., & Kumar, P. (2018). Interactions of information transfer along separable causal paths. Physical Review E, 97(4), 042310.
 
 ## Requirements
 1. Add the folder into your environment variable PYTHONPATH.
-2. Install required python packages using *pip*: `pip install -r requirements.txt`.
 2. Create the environment from the `environment.yml` file by:
 ```
 conda env create -f environment.yml

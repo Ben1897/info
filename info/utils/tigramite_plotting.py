@@ -1697,7 +1697,10 @@ def plot_time_series_graph2(lagfuncs, sig_thres, var_names, fig, ax,
                             taumax=None,
                             highlighted_nodes=[],
                             highlighted_nodes2=[],
+                            highlighted_nodes3=[],
+                            highlighted_nodes4=[],
                             removed_edges=[],
+                            highlighted_edges=[],
 ):
     """Creates and saves plot of time series graph.
 
@@ -1765,14 +1768,29 @@ def plot_time_series_graph2(lagfuncs, sig_thres, var_names, fig, ax,
             G.nodes[n]['highlighted'] = 1
         elif n in highlighted_nodes2:
             G.nodes[n]['highlighted'] = 2
+        elif n in highlighted_nodes3:
+            G.nodes[n]['highlighted'] = 3
+        elif n in highlighted_nodes4:
+            G.nodes[n]['highlighted'] = 4
         else:
             G.nodes[n]['highlighted'] = False
+
+    # If there is highlighted edges, then 
+    if highlighted_edges:
+        edge_color = 'grey'
+    else:
+        edge_color = 'black'
 
     # node_color = numpy.zeros(N)
     # list of all strengths for color map
     all_strengths = []
     # Add attributes, contemporaneous and directed links are handled separately
     for (u, v, dic) in G.edges(data=True):
+
+        if (u, v) in highlighted_edges:
+            dic['highlighted'] = True
+        else:
+            dic['highlighted'] = False
 
         if u != v:
 
@@ -1809,6 +1827,7 @@ def plot_time_series_graph2(lagfuncs, sig_thres, var_names, fig, ax,
             dic['removed'] = True
         else:
             dic['removed'] = False
+
 
     # If no links are present, set value to zero
     if len(all_strengths) == 0:
@@ -1855,7 +1874,7 @@ def plot_time_series_graph2(lagfuncs, sig_thres, var_names, fig, ax,
         # 'vmin':float or None, 'vmax':float or None, 'label':string or None}}
         node_labels=node_labels, node_label_size=node_label_size,
         node_alpha=alpha, standard_size=node_size,
-        standard_cmap='OrRd', standard_color='grey',
+        standard_cmap='OrRd', edge_color=edge_color,
         log_sizes=False,
         cmap_links=cmap_edges, links_vmin=vmin_edges,
         links_vmax=vmax_edges, links_ticks=edge_ticks,
@@ -2066,7 +2085,248 @@ def plot_time_series_graph3(lagfuncs, causalDict, var_names, fig, ax,
         # 'vmin':float or None, 'vmax':float or None, 'label':string or None}}
         node_labels=node_labels, node_label_size=node_label_size,
         node_alpha=alpha, standard_size=node_size,
-        standard_cmap='OrRd', standard_color='grey',
+        standard_cmap='OrRd', standard_color='white',
+        log_sizes=False,
+        cmap_links=cmap_edges, links_vmin=vmin_edges,
+        links_vmax=vmax_edges, links_ticks=edge_ticks,
+
+        cmap_links_edges='YlOrRd', links_edges_vmin=-1., links_edges_vmax=1.,
+        links_edges_ticks=.2, link_edge_colorbar_label='link_edge',
+
+        widthfunc = widthfunc,
+
+        arrowstyle='simple', arrowhead_size=arrowhead_size,
+        curved_radius=curved_radius, label_fontsize=label_fontsize,
+        label_fraction=.5,
+        link_colorbar_label=link_colorbar_label, undirected_curved=True,
+        undirected_style=undirected_style)
+
+    for i in range(N):
+        trans = transforms.blended_transform_factory(
+            fig.transFigure, ax.transData)
+        ax.text(label_indent_left, pos[order[i] * max_lag][1],
+                '%s' % str(var_names[order[i]]), fontsize=label_fontsize,
+                horizontalalignment='left', verticalalignment='center',
+                transform=trans)
+
+    for tau in numpy.arange(max_lag - 1, -1, -1):
+        trans = transforms.blended_transform_factory(
+            ax.transData, fig.transFigure)
+        if tau == max_lag - 1:
+            ax.text(pos[tau][0], label_indent_top, r'$t$',
+                    fontsize=label_fontsize,
+                    horizontalalignment='center',
+                    verticalalignment='top', transform=trans)
+        else:
+            ax.text(pos[tau][0], label_indent_top,
+                    r'$t-%s$' % str(max_lag - tau - 1),
+                    fontsize=label_fontsize,
+                    horizontalalignment='center', verticalalignment='top',
+                    transform=trans)
+
+    # fig.subplots_adjust(left=0.1, right=.98, bottom=.25, top=.9)
+    # savestring = os.path.expanduser(save_name)
+    # pyplot.savefig(savestring)
+
+
+def plot_time_series_graph_mpid(lagfuncs, sig_thres, var_names, fig, ax,
+                            link_colorbar_label='',
+                            rescale_cmi=False,
+                            link_width=None,
+                            arrow_linewidth=20.,
+                            vmin_edges=-1,
+                            vmax_edges=1.,
+                            edge_ticks=.4,
+                            cmap_edges='RdBu_r',
+                            order=None,
+                            node_size=10,
+                            arrowhead_size=5,
+                            curved_radius=.2,
+                            label_fontsize=10,
+                            alpha=1.,
+                            node_label_size=10,
+                            # link_label_fontsize=8,
+                            label_indent_left=0.,
+                            label_indent_top=.95,
+                            undirected_style='solid',
+                            widthfunc=None,
+                            taumax=None,
+                            highlighted_edges1=[],
+                            highlighted_edges2=[],
+                            highlighted_nodes=[],
+                            highlighted_nodes2=[],
+                            highlighted_nodes3=[],
+                            highlighted_nodes4=[],
+                            removed_edges=[],
+):
+    """Creates and saves plot of time series graph.
+
+    Based on lag function and sig_thres array. This function needs docstrings!
+    """
+
+    import networkx
+
+    # lagfuncs = numpy.abs(lagfuncs)
+    # sig_thres = numpy.abs(sig_thres)
+
+    if taumax is None:
+        _, _, taumax = lagfuncs.shape
+
+    if rescale_cmi:
+        print("Rescaling CMI (and sig_thres) to partial correlation "
+              "scale [0, 1]")
+        lagfuncs = par_corr_trafo(lagfuncs)
+        sig_thres = par_corr_trafo(sig_thres)
+
+    if link_width is not None and not numpy.all(link_width >= 0.):
+        raise ValueError("link_width must be non-negative")
+
+    if taumax is None:
+        N, N, dummy = lagfuncs.shape
+        tau_max = dummy - 1
+    else:
+        N, N, _ = lagfuncs.shape
+        tau_max = taumax
+    max_lag = tau_max + 1
+
+    if order is None:
+        order = range(N)
+
+    if set(order) != set(range(N)):
+        raise ValueError("order must be a permutation of range(N)")
+
+    def translate(row, lag):
+        return row * max_lag + lag
+
+    # Define graph links by absolute maximum (positive or negative like for
+    # partial correlation)
+    tsg = numpy.zeros((N * max_lag, N * max_lag))
+    tsg_attr = numpy.zeros((N * max_lag, N * max_lag))
+
+    for i, j, tau in numpy.column_stack(numpy.where(lagfuncs >=
+                                                    sig_thres)):
+        #                    print '\n',i, j, tau
+        #                    print numpy.where(nonmasked[:,j])[0]
+
+        for t in range(max_lag):
+            if (0 <= translate(i, t - tau) and
+                translate(i, t - tau) % max_lag <= translate(j, t) % max_lag):
+                # print translate(i, t-tau), translate(j, t), lagfuncs[i,j,tau]
+                tsg[translate(i, t - tau), translate(j, t)
+                    ] = lagfuncs[i, j, tau]
+                tsg_attr[translate(i, t - tau), translate(j, t)
+                         ] = lagfuncs[i, j, tau]
+
+    G = networkx.DiGraph(tsg)
+
+    # Add highlight attributes to the nodes of interest if any
+    for n in range(N*max_lag):
+        if n in highlighted_nodes:
+            G.nodes[n]['highlighted'] = 1
+        elif n in highlighted_nodes2:
+            G.nodes[n]['highlighted'] = 2
+        elif n in highlighted_nodes3:
+            G.nodes[n]['highlighted'] = 3
+        elif n in highlighted_nodes4:
+            G.nodes[n]['highlighted'] = 4
+        else:
+            G.nodes[n]['highlighted'] = False
+
+    # node_color = numpy.zeros(N)
+    # list of all strengths for color map
+    all_strengths = []
+    # Add attributes, contemporaneous and directed links are handled separately
+    for (u, v, dic) in G.edges(data=True):
+
+        if u != v:
+
+            if u % max_lag == v % max_lag:
+                dic['undirected'] = True
+                dic['directed'] = False
+            else:
+                dic['undirected'] = False
+                dic['directed'] = True
+
+            dic['undirected_alpha'] = alpha
+            dic['undirected_color'] = get_absmax(
+                numpy.array([[[tsg_attr[u, v],
+                               tsg_attr[v, u]]]])
+            ).squeeze()
+            dic['undirected_width'] = arrow_linewidth
+            all_strengths.append(dic['undirected_color'])
+
+            dic['directed_alpha'] = alpha
+
+            dic['directed_width'] = arrow_linewidth
+
+            # value at argmax of average
+            dic['directed_color'] = tsg_attr[u, v]
+            all_strengths.append(dic['directed_color'])
+            dic['label'] = None
+
+        if (u, v) in highlighted_edges1:
+            dic['highlighted_edge'] = 1
+        elif (u, v) in highlighted_edges2:
+            dic['highlighted_edge'] = 2
+        else:
+            dic['highlighted_edge'] = False
+
+        dic['directed_edge'] = False
+        dic['directed_edgecolor'] = None
+        dic['undirected_edge'] = False
+        dic['undirected_edgecolor'] = None
+
+        if (u, v) in removed_edges:
+            dic['removed'] = True
+        else:
+            dic['removed'] = False
+
+    # If no links are present, set value to zero
+    if len(all_strengths) == 0:
+        all_strengths = [0.]
+
+    posarray = numpy.zeros((N * max_lag, 2))
+    for i in xrange(N * max_lag):
+
+        posarray[i] = numpy.array([(i % max_lag), (1. - i / max_lag)])
+
+    pos_tmp = {}
+    for i in range(N * max_lag):
+        # for n in range(N):
+        #     for tau in range(max_lag):
+        #         i = n*N + tau
+        pos_tmp[i] = numpy.array([((i % max_lag) - posarray.min(axis=0)[0]) /
+                                  (posarray.max(axis=0)[0] -
+                                   posarray.min(axis=0)[0]),
+                                  ((1. - i / max_lag) -
+                                   posarray.min(axis=0)[1]) /
+                                  (posarray.max(axis=0)[1] -
+                                   posarray.min(axis=0)[1])])
+#                    print pos[i]
+    pos = {}
+    for n in range(N):
+        for tau in range(max_lag):
+            pos[n * max_lag + tau] = pos_tmp[order[n] * max_lag + tau]
+
+    node_rings = {0: {'sizes': None, 'color_array': None,
+                      'label': '', 'colorbar': False,
+                      }
+                  }
+
+    # ] for v in range(max_lag)]
+    node_labels = ['' for i in range(N * max_lag)]
+
+    draw_network_with_curved_edges2(
+        fig=fig, ax=ax,
+        G=deepcopy(G), pos=pos,
+        taumax=taumax,
+        # dictionary of rings: {0:{'sizes':(N,)-array, 'color_array':(N,)-array
+        # or None, 'cmap':string,
+        node_rings=node_rings,
+        # 'vmin':float or None, 'vmax':float or None, 'label':string or None}}
+        node_labels=node_labels, node_label_size=node_label_size,
+        node_alpha=alpha, standard_size=node_size,
+        standard_cmap='OrRd',
         log_sizes=False,
         cmap_links=cmap_edges, links_vmin=vmin_edges,
         links_vmax=vmax_edges, links_ticks=edge_ticks,
@@ -2115,7 +2375,7 @@ def draw_network_with_curved_edges2(
     G, pos,
     node_rings,
     node_labels, node_label_size, node_alpha=1., standard_size=100,
-    standard_cmap='OrRd', standard_color='grey', log_sizes=False,
+    standard_cmap='OrRd', standard_color='white', edge_color='black', log_sizes=False,
     cmap_links='YlOrRd', cmap_links_edges='YlOrRd', links_vmin=0.,
     links_vmax=1., links_edges_vmin=0., links_edges_vmax=1.,
     links_ticks=.2, links_edges_ticks=.2, link_label_fontsize=8,
@@ -2145,7 +2405,7 @@ def draw_network_with_curved_edges2(
 
     N = len(G)
 
-    def draw_edge(ax, u, v, d, seen, arrowstyle='simple', directed=True, widthfunc=None):
+    def draw_edge(ax, u, v, d, seen, arrowstyle='simple', highlighted=False, directed=True, widthfunc=None):
 
         n1 = G.node[u]['patch']
         n2 = G.node[v]['patch']
@@ -2159,6 +2419,8 @@ def draw_network_with_curved_edges2(
             else:
                 if d['directed_color'] is not None:
                     facecolor = d['directed_color']
+                elif highlighted:
+                    facecolor = 'magenta'
                 else:
                     facecolor = standard_color
             if d['directed_edgecolor'] is not None:
@@ -2167,8 +2429,11 @@ def draw_network_with_curved_edges2(
             else:
                 if d['directed_edgecolor'] is not None:
                     edgecolor = d['directed_edgecolor']
+                elif highlighted:
+                    edgecolor = 'magenta'
                 else:
-                    edgecolor = standard_color
+                    # edgecolor = standard_color
+                    edgecolor = edge_color
             # width = d['directed_width']
             alpha = d['directed_alpha']
             if (u, v) in seen:
@@ -2185,6 +2450,8 @@ def draw_network_with_curved_edges2(
             else:
                 if d['undirected_color'] is not None:
                     facecolor = d['undirected_color']
+                elif highlighted:
+                    facecolor = 'magenta'
                 else:
                     facecolor = standard_color
             if d['undirected_edgecolor'] is not None:
@@ -2193,8 +2460,10 @@ def draw_network_with_curved_edges2(
             else:
                 if d['undirected_edgecolor'] is not None:
                     edgecolor = d['undirected_edgecolor']
+                elif highlighted:
+                    edgecolor = 'magenta'
                 else:
-                    edgecolor = standard_color
+                    edgecolor = edge_color
             # width = d['undirected_width']
             alpha = d['undirected_alpha']
             arrowstyle = 'simple,head_length=0.0001'
@@ -2208,6 +2477,10 @@ def draw_network_with_curved_edges2(
         else:
             width = widthfunc(d['weight'])
 
+        # If the edge is highlighted, double the thickness of the edge
+        # if highlighted:
+            # width = width *2
+
         # arrow style
         arrowstyle = ArrowStyle(arrowstyle, head_length=arrowhead_size/width,
                                 head_width=arrowhead_size/width)
@@ -2220,8 +2493,8 @@ def draw_network_with_curved_edges2(
                                 mutation_scale=3 * width,
                                 lw=0.,
                                 alpha=alpha,
-                                # color=edgecolor,
-                                color='k',
+                                color=edgecolor,
+                                # color='k',
                                 #                                zorder = -1,
                                 clip_on=False,
                                 patchA=n1, patchB=n2)
@@ -2235,7 +2508,7 @@ def draw_network_with_curved_edges2(
                             lw=linewidth,
                             alpha=alpha,
                             # color=facecolor,
-                            color='k',
+                            color=edgecolor,
                             clip_on=False,
                             patchA=n1, patchB=n2)
         # e.set_arrowstyle("simple", head_length=1.5, head_width=1,tail_width=0.2)
@@ -2358,13 +2631,450 @@ def draw_network_with_curved_edges2(
                            facecolors='blue',
                            edgecolors='blue', alpha=alpha,
                            clip_on=False, linewidth=.1, zorder=-ring)
+            elif highlighted == 3:
+                ax.scatter(pos[n][0], pos[n][1],
+                           s=node_sizes[:ring + 1].sum(axis=0)[n] ** 2.2,
+                           facecolors='red',
+                           edgecolors='red', alpha=alpha,
+                           clip_on=False, linewidth=.1, zorder=-ring)
+            elif highlighted == 4:
+                ax.scatter(pos[n][0], pos[n][1],
+                           s=node_sizes[:ring + 1].sum(axis=0)[n] ** 2.2,
+                           facecolors='black',
+                           edgecolors='black', alpha=alpha,
+                           clip_on=False, linewidth=.1, zorder=-ring)
             else:
                 if colors is None:
                     ax.scatter(pos[n][0], pos[n][1],
                                s=node_sizes[:ring + 1].sum(axis=0)[n] ** 2,
                                facecolors=standard_color,
-                               edgecolors=standard_color, alpha=alpha,
+                               edgecolors=edge_color, alpha=alpha,
+                               # clip_on=False, linewidth=.1, zorder=-ring)
+                               clip_on=False, linewidth=1, zorder=-ring)
+                else:
+                    ax.scatter(pos[n][0], pos[n][1],
+                               s=node_sizes[:ring + 1].sum(axis=0)[n] ** 2,
+                               facecolors=colors[n], edgecolors='white',
+                               alpha=alpha,
                                clip_on=False, linewidth=.1, zorder=-ring)
+
+            if ring == 0:
+                ax.text(pos[n][0], pos[n][1], node_labels[n],
+                        fontsize=node_label_size,
+                        horizontalalignment='center',
+                        verticalalignment='center', alpha=alpha)
+
+        if node_rings[ring]['sizes'] is not None:
+            # Draw reference node as legend
+            ax.scatter(0., 0., s=node_sizes[:ring + 1].sum(axis=0).max() ** 2,
+                       alpha=1., facecolors='none', edgecolors='grey',
+                       clip_on=False, linewidth=.1, zorder=-ring)
+
+            if log_sizes:
+                ax.text(0., 0., '         ' * ring + '%.2f' %
+                        (numpy.exp(max_sizes[ring]) - 1.),
+                        fontsize=node_label_size,
+                        horizontalalignment='left', verticalalignment='center')
+            else:
+                ax.text(0., 0., '         ' * ring + '%.2f' % max_sizes[ring],
+                        fontsize=node_label_size,
+                        horizontalalignment='left', verticalalignment='center')
+
+    ##
+    # Draw edges of different types
+    ##
+    # First draw small circles as anchorpoints of the curved edges
+    for n in G:
+        # , transform = ax.transAxes)
+        size = standard_size*.3
+        c = Circle(pos[n], radius=size, alpha=0., fill=False, linewidth=0.)
+        ax.add_patch(c)
+        G.node[n]['patch'] = c
+
+    # Collect all edge weights to get color scale
+    all_links_weights = []
+    all_links_edge_weights = []
+    for (u, v, d) in G.edges(data=True):
+        if u != v:
+            if d['directed'] and d['directed_color'] is not None:
+                all_links_weights.append(d['directed_color'])
+            if d['undirected'] and d['undirected_color'] is not None:
+                all_links_weights.append(d['undirected_color'])
+            if d['directed_edge'] and d['directed_edgecolor'] is not None:
+                all_links_edge_weights.append(d['directed_edgecolor'])
+            if d['undirected_edge'] and d['undirected_edgecolor'] is not None:
+                all_links_edge_weights.append(d['undirected_edgecolor'])
+
+    if cmap_links is not None and len(all_links_weights) > 0:
+        if links_vmin is None:
+            links_vmin = numpy.array(all_links_weights).min()
+        if links_vmax is None:
+            links_vmax = numpy.array(all_links_weights).max()
+        data_to_rgb_links = pyplot.cm.ScalarMappable(
+            norm=None, cmap=pyplot.get_cmap(cmap_links))
+        data_to_rgb_links.set_array(numpy.array(all_links_weights))
+        data_to_rgb_links.set_clim(vmin=links_vmin, vmax=links_vmax)
+        # Create colorbars for links
+# cax_e = pyplot.axes([.8, ax.figbox.bounds[1]+0.5, 0.025, 0.35],
+# frameon=False) # setup colorbar axes.
+        # setup colorbar axes.
+        # cax_e = pyplot.axes([0.55, ax.figbox.bounds[1] - 0.05, 0.4, 0.025 +
+        #                      (len(all_links_edge_weights) == 0) * 0.035],
+        #                     frameon=False)
+
+        # cb_e = pyplot.colorbar(
+        #     data_to_rgb_links, cax=cax_e, orientation='horizontal')
+        # try:
+        #     cb_e.set_ticks(numpy.arange(myround(links_vmin, links_ticks,
+        #                                         'down'),
+        #                              myround(links_vmax, links_ticks, 'up') +
+        #                              links_ticks, links_ticks))
+        # except:
+        #     print 'no ticks given'
+
+        # cb_e.outline.remove()
+        # # cb_n.set_ticks()
+        # cax_e.set_xlabel(
+        #     link_colorbar_label, labelpad=1, fontsize=label_fontsize)
+
+    if cmap_links_edges is not None and len(all_links_edge_weights) > 0:
+        if links_edges_vmin is None:
+            links_edges_vmin = numpy.array(all_links_edge_weights).min()
+        if links_edges_vmax is None:
+            links_edges_vmax = numpy.array(all_links_edge_weights).max()
+        data_to_rgb_links_edges = pyplot.cm.ScalarMappable(
+            norm=None, cmap=pyplot.get_cmap(cmap_links_edges))
+        data_to_rgb_links_edges.set_array(numpy.array(all_links_edge_weights))
+        data_to_rgb_links_edges.set_clim(
+            vmin=links_edges_vmin, vmax=links_edges_vmax)
+
+        # Create colorbars for link edges
+# cax_e = pyplot.axes([.8+.1, ax.figbox.bounds[1]+0.5, 0.025, 0.35],
+# frameon=False) # setup colorbar axes.
+        # setup colorbar axes.
+        cax_e = pyplot.axes(
+            [0.55, ax.figbox.bounds[1] + 0.05 + 0.1, 0.4, 0.025],
+            # [0.55, ax.figbox.bounds[1] - 0.2, 0.4, 0.025],
+            frameon=False)
+
+        cb_e = pyplot.colorbar(
+            data_to_rgb_links_edges, cax=cax_e, orientation='horizontal')
+        try:
+            cb_e.set_ticks(numpy.arange(myround(links_edges_vmin,
+                                                links_edges_ticks, 'down'),
+                                        myround(links_edges_vmax,
+                                                links_edges_ticks, 'up') +
+                                        links_edges_ticks,
+                                        links_edges_ticks))
+        except:
+            print 'no ticks given'
+        cb_e.outline.remove()
+        # cb_n.set_ticks()
+        cax_e.set_xlabel(
+            link_edge_colorbar_label, labelpad=1, fontsize=label_fontsize)
+
+    # Draw edges
+    seen = {}
+    for (u, v, d) in G.edges(data=True):
+        if d['removed']: continue
+        if u != v:
+            highlighted = d['highlighted']
+            if d['directed']:
+                seen[(u, v)] = draw_edge(ax, u, v, d, seen, arrowstyle, highlighted=highlighted, directed=True)
+            if d['undirected'] and (v, u) not in seen:
+                seen[(u, v)] = draw_edge(ax, u, v, d, seen, highlighted=highlighted, directed=False)
+    # if taumax is None:
+        # for (u, v, d) in G.edges(data=True):
+            # if d['removed']: continue
+            # if u != v:
+                # highlighted = d['highlighted']
+                # if d['directed']:
+                    # seen[(u, v)] = draw_edge(ax, u, v, d, seen, arrowstyle, highlighted=highlighted, directed=True)
+                # if d['undirected'] and (v, u) not in seen:
+                    # seen[(u, v)] = draw_edge(ax, u, v, d, seen, highlighted=highlighted, directed=False)
+
+    # else:
+        # for (u, v, d) in G.edges(data=True):
+            # if d['removed']: continue
+            # if u != v and u / taumax != v / taumax:
+                # highlighted = d['highlighted']
+                # if d['directed']:
+                    # seen[(u, v)] = draw_edge(ax, u, v, d, seen, arrowstyle, highlighted=highlighted, directed=True)
+                # if d['undirected'] and (v, u) not in seen:
+                    # seen[(u, v)] = draw_edge(ax, u, v, d, seen, highlighted=highlighted, directed=False)
+
+        # for (u, v, d) in G.edges(data=True):
+            # if d['removed']: continue
+            # if u != v and u / taumax == v / taumax and u % taumax != v % taumax -1:
+                # if d['directed']:
+                    # seen[(u, v)] = draw_edge(ax, u, v, d, seen, arrowstyle, highlighted=highlighted, directed=True)
+                # if d['undirected'] and (v, u) not in seen:
+                    # seen[(u, v)] = draw_edge(ax, u, v, d, seen, highlighted=highlighted, directed=False)
+
+        # for (u, v, d) in G.edges(data=True):
+            # if d['removed']: continue
+            # if u != v and u / taumax == v / taumax and u % taumax == v % taumax -1:
+                # if d['directed']:
+                    # seen[(u, v)] = draw_edge(ax, u, v, d, seen, arrowstyle, highlighted=highlighted, directed=True)
+                # if d['undirected'] and (v, u) not in seen:
+                    # seen[(u, v)] = draw_edge(ax, u, v, d, seen, highlighted=highlighted, directed=False)
+
+
+def draw_network_with_curved_edges3(
+    fig, ax,
+    G, pos,
+    node_rings,
+    node_labels, node_label_size, node_alpha=1., standard_size=100,
+    standard_cmap='OrRd', standard_color='white', edge_color='black', log_sizes=False,
+    cmap_links='YlOrRd', cmap_links_edges='YlOrRd', links_vmin=0.,
+    links_vmax=1., links_edges_vmin=0., links_edges_vmax=1.,
+    links_ticks=.2, links_edges_ticks=.2, link_label_fontsize=8,
+    arrowstyle='simple', arrowhead_size=3., curved_radius=.2, label_fontsize=4,
+    label_fraction=.5, link_colorbar_label='link',
+    link_edge_colorbar_label='link_edge',
+    undirected_curved=False, undirected_style='solid',
+    widthfunc=None,
+    taumax=None,
+):  # , params=None):
+    """Function to draw a network from networkx graph instance.
+
+    Various attributes are used to specify the graph's properties.
+
+    This function is just a beta-template for now that can be further
+    customized.
+    """
+
+    from matplotlib.patches import FancyArrowPatch, Circle, ArrowStyle
+
+    ax.spines['left'].set_color('none')
+    ax.spines['right'].set_color('none')
+    ax.spines['bottom'].set_color('none')
+    ax.spines['top'].set_color('none')
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    N = len(G)
+
+    def draw_edge(ax, u, v, d, seen, arrowstyle='simple', directed=True, widthfunc=None):
+
+        n1 = G.node[u]['patch']
+        n2 = G.node[v]['patch']
+
+        if directed:
+            rad = curved_radius
+            if d['highlighted_edge'] == 1:
+                edgecolor = 'cyan'
+            elif d['highlighted_edge'] == 2:
+                edgecolor = 'brown'
+            else:
+                edgecolor = 'black'
+            # width = d['directed_width']
+            alpha = d['directed_alpha']
+            if (u, v) in seen:
+                rad = seen.get((u, v))
+                rad = (rad + numpy.sign(rad) * 0.1) * -1.
+            arrowstyle = arrowstyle
+            link_edge = d['directed_edge']
+            linestyle = 'solid'
+            linewidth = 0.
+        else:
+            rad = undirected_curved * curved_radius
+            if cmap_links is not None:
+                facecolor = data_to_rgb_links.to_rgba(d['undirected_color'])
+            else:
+                if d['undirected_color'] is not None:
+                    facecolor = d['undirected_color']
+                else:
+                    facecolor = standard_color
+            if d['undirected_edgecolor'] is not None:
+                edgecolor = data_to_rgb_links_edges.to_rgba(
+                    d['undirected_edgecolor'])
+            else:
+                if d['undirected_edgecolor'] is not None:
+                    edgecolor = d['undirected_edgecolor']
+                else:
+                    edgecolor = edge_color
+            # width = d['undirected_width']
+            alpha = d['undirected_alpha']
+            arrowstyle = 'simple,head_length=0.0001'
+            link_edge = d['undirected_edge']
+            linestyle = undirected_style
+            linewidth = 0.
+
+        # width = numpy.exp(100*d['weight'])
+        if widthfunc == None:
+            width = 20 / (1 + numpy.exp(-100.*(d['weight']-0.025)))
+        else:
+            width = widthfunc(d['weight'])
+
+        # arrow style
+        arrowstyle = ArrowStyle(arrowstyle, head_length=arrowhead_size/width,
+                                head_width=arrowhead_size/width)
+
+        if link_edge:
+            # Outer arrow
+            e = FancyArrowPatch(n1.center, n2.center,  # patchA=n1,patchB=n2,
+                                arrowstyle=arrowstyle,
+                                connectionstyle='arc3,rad=%s' % rad,
+                                mutation_scale=3 * width,
+                                lw=0.,
+                                alpha=alpha,
+                                color=edgecolor,
+                                #                                zorder = -1,
+                                clip_on=False,
+                                patchA=n1, patchB=n2)
+
+            ax.add_patch(e)
+        # Inner arrow
+        e = FancyArrowPatch(n1.center, n2.center,  # patchA=n1,patchB=n2,
+                            arrowstyle= arrowstyle,   #arrowstyle,
+                            connectionstyle='arc3,rad=%s' % rad,
+                            mutation_scale=width,
+                            lw=linewidth,
+                            alpha=alpha,
+                            color=edgecolor,
+                            clip_on=False,
+                            patchA=n1, patchB=n2)
+        # e.set_arrowstyle("simple", head_length=1.5, head_width=1,tail_width=0.2)
+        ax.add_patch(e)
+
+        if d['label'] is not None and directed:
+            # Attach labels of lags
+            trans = None  # patch.get_transform()
+            path = e.get_path()
+            verts = path.to_polygons(trans)[0]
+            if len(verts) > 2:
+                label_vert = verts[1, :]
+                l = d['label']
+                string = str(l)
+                ax.text(label_vert[0], label_vert[1], string,
+                        fontsize=link_label_fontsize,
+                        verticalalignment='center',
+                        horizontalalignment='center')
+
+        return rad
+
+    # Fix lower left and upper right corner (networkx unfortunately rescales
+    # the positions...)
+    # c = Circle((0, 0), radius=.01, alpha=1., fill=False,
+    #            linewidth=0., transform=fig.transFigure)
+    # ax.add_patch(c)
+    # c = Circle((1, 1), radius=.01, alpha=1., fill=False,
+    #            linewidth=0., transform=fig.transFigure)
+    # ax.add_patch(c)
+
+    ##
+    # Draw nodes
+    ##
+    node_sizes = numpy.zeros((len(node_rings.keys()), N))
+    for ring in node_rings.keys():  # iterate through to get all node sizes
+        if node_rings[ring]['sizes'] is not None:
+            node_sizes[ring] = node_rings[ring]['sizes']
+        else:
+            node_sizes[ring] = standard_size
+
+    max_sizes = node_sizes.max(axis=1)
+    total_max_size = node_sizes.sum(axis=0).max()
+    node_sizes /= total_max_size
+    node_sizes *= standard_size
+    # print  'node_sizes ', node_sizes
+
+    # start drawing the outer ring first...
+    for ring in node_rings.keys()[::-1]:
+        # print ring
+        # dictionary of rings: {0:{'sizes':(N,)-array, 'color_array':(N,)-array
+        # or None, 'cmap':string, 'vmin':float or None, 'vmax':float or None}}
+        if node_rings[ring]['color_array'] is not None:
+            color_data = node_rings[ring]['color_array']
+            if node_rings[ring]['vmin'] is not None:
+                vmin = node_rings[ring]['vmin']
+            else:
+                vmin = node_rings[ring]['color_array'].min()
+            if node_rings[ring]['vmax'] is not None:
+                vmax = node_rings[ring]['vmax']
+            else:
+                vmax = node_rings[ring]['color_array'].max()
+            if node_rings[ring]['cmap'] is not None:
+                cmap = node_rings[ring]['cmap']
+            else:
+                cmap = standard_cmap
+            data_to_rgb = pyplot.cm.ScalarMappable(
+                norm=None, cmap=pyplot.get_cmap(cmap))
+            data_to_rgb.set_array(color_data)
+            data_to_rgb.set_clim(vmin=vmin, vmax=vmax)
+            colors = [data_to_rgb.to_rgba(color_data[n]) for n in G]
+
+            if node_rings[ring]['colorbar']:
+                # Create colorbars for nodes
+                # cax_n = pyplot.axes([.8 + ring*0.11,
+                # ax.figbox.bounds[1]+0.05, 0.025, 0.35], frameon=False) #
+                # setup colorbar axes.
+                # setup colorbar axes.
+                # cax_n = pyplot.axes([0.05, ax.figbox.bounds[1] + 0.02 + ring * 0.11, 0.4, 0.025 +
+                cax_n = pyplot.axes([0.05, ax.figbox.bounds[1] - 0.05, 0.4, 0.025 +
+                                     (len(node_rings.keys()) == 1) * 0.035],
+                                    frameon=False)
+                cb_n = pyplot.colorbar(
+                    data_to_rgb, cax=cax_n, orientation='horizontal')
+                try:
+                    cb_n.set_ticks(numpy.arange(myround(vmin,
+                                node_rings[ring]['ticks'], 'down'), myround(
+                        vmax, node_rings[ring]['ticks'], 'up') +
+                        node_rings[ring]['ticks'], node_rings[ring]['ticks']))
+                except:
+                    print 'no ticks given'
+                cb_n.outline.remove()
+                # cb_n.set_ticks()
+                cax_n.set_xlabel(
+                    node_rings[ring]['label'], labelpad=1,
+                    fontsize=label_fontsize)
+        else:
+            colors = None
+            vmin = None
+            vmax = None
+
+        for n in G:
+            # if n==1: print node_sizes[:ring+1].sum(axis=0)[n]
+
+            highlighted = G.nodes[n]['highlighted']
+
+            if type(node_alpha) == dict:
+                alpha = node_alpha[n]
+            else:
+                alpha = 1.
+
+            if highlighted == 1:
+                ax.scatter(pos[n][0], pos[n][1],
+                           s=node_sizes[:ring + 1].sum(axis=0)[n] ** 2.2,
+                           facecolors='orange',
+                           edgecolors='orange', alpha=alpha,
+                           clip_on=False, linewidth=.1, zorder=-ring)
+            elif highlighted == 2:
+                ax.scatter(pos[n][0], pos[n][1],
+                           s=node_sizes[:ring + 1].sum(axis=0)[n] ** 2.2,
+                           facecolors='blue',
+                           edgecolors='blue', alpha=alpha,
+                           clip_on=False, linewidth=.1, zorder=-ring)
+            elif highlighted == 3:
+                ax.scatter(pos[n][0], pos[n][1],
+                           s=node_sizes[:ring + 1].sum(axis=0)[n] ** 2.2,
+                           facecolors='red',
+                           edgecolors='red', alpha=alpha,
+                           clip_on=False, linewidth=.1, zorder=-ring)
+            elif highlighted == 4:
+                ax.scatter(pos[n][0], pos[n][1],
+                           s=node_sizes[:ring + 1].sum(axis=0)[n] ** 2.2,
+                           facecolors='black',
+                           edgecolors='black', alpha=alpha,
+                           clip_on=False, linewidth=.1, zorder=-ring)
+            else:
+                if colors is None:
+                    ax.scatter(pos[n][0], pos[n][1],
+                               s=node_sizes[:ring + 1].sum(axis=0)[n] ** 2,
+                               facecolors=standard_color,
+                               edgecolors=edge_color, alpha=alpha,
+                               # clip_on=False, linewidth=.1, zorder=-ring)
+                               clip_on=False, linewidth=1, zorder=-ring)
                 else:
                     ax.scatter(pos[n][0], pos[n][1],
                                s=node_sizes[:ring + 1].sum(axis=0)[n] ** 2,

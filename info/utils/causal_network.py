@@ -37,6 +37,7 @@ exclude_intersection()
 
 '''
 
+from copy import deepcopy
 import networkx as nx
 import numpy as np
 
@@ -331,7 +332,7 @@ class causal_network(object):
 
         return w
 
-    def search_mpid_condition(self, source1, source2, target, transitive=False, verbosity=1):
+    def search_mpid_condition(self, source1, source2, target, transitive=False, onlyw=True, verbosity=1):
         """
         Find the conditions for calculating the momentary partial information decomposition (MPID) between two sources and a target.
 
@@ -382,7 +383,7 @@ class causal_network(object):
         w = list(union([w1, w2, w3]))
 
         # Conduct the weighted transitive reduction on the condition set w if required
-        cpaths = list(union([cpaths1, cpaths2]))
+        cpaths = list(union([cpath1, cpath2]))
         if transitive:
             # Get the descendants/children of the w
             wchild = get_children_from_nodes(g, w)
@@ -398,7 +399,11 @@ class causal_network(object):
             print "The number of conditions from %s and %s to %s is %d, including:" % (source1, source2, target, len(w))
             print w
 
-        return w
+        if onlyw:
+            return w
+        else:
+            cpaths = convert_nodes_to_listofset(cpaths, nvar)
+            return w, cpaths
 
 
     def search_mpid_set_condition(self, sources1, sources2, target, transitive=False, verbosity=1):
@@ -488,6 +493,119 @@ class causal_network(object):
             print w
 
         return srcs1, srcs2, w
+
+
+    def search_bundled_components(self, srcset, target, tau, level=1, transitive=False, returnRemovedEdges=False, verbosity=1):
+        """
+        Find the elements for calculating the information transfer (CIT) from bundled sources to the target.
+
+        Input:
+        srcset -- the first list of source variables [[var_index]]
+        target   -- the target node [set (var_index, lag)]
+        tau     -- the time lag for separating immediate and distant causal histories
+        transitive -- indicator whether the weighted transitive reduction should be performed [bool]
+        Output:
+        the elements for BCH [list of sets]
+
+        """
+        import copy
+        g, nvar = self.g, self.nvar
+        nsource = len(srcset)
+        sources = [(src, -tau) for src in srcset]
+
+        # Check whether the node is in the causal network
+        for source in sources:
+            self.__check_node(source)
+        self.__check_node(target)
+
+        # Get the node number
+        snodes = [get_node_number(source, nvar, 0) for source in sources]
+        tnode  = get_node_number(target, nvar, 0)
+
+        # Get all the nodes in the immediate causal history
+        ichlist = [(src,-i) for src in srcset for i in range(1,tau+1)]
+        ich     = [get_node_number(node, nvar, 0) for node in ichlist]
+
+        # Get the parents of the target node
+        pt = get_parents_from_nodes(g, [tnode])
+
+        # Get the parents of the target node in the causal paths from the sourcesnew
+        pt_list = convert_nodes_to_listofset(pt, nvar)
+        ptclist = [node for node in pt_list if node[0] in srcset and node[1] >= -tau]
+
+        # Get the representative distant causala history, w
+        w = get_parents_from_nodes(g, ich)
+        wlist  = convert_nodes_to_listofset(w, nvar)
+
+        # Keep the nodes only in the distant causal history of srcset
+        wlist = [node for node in wlist if node[1] < -tau and node[0] in srcset]
+        w = [get_node_number(node, nvar, 0) for node in wlist]
+
+        # Conduct the weighted transitive reduction on w if required
+        if transitive:
+            # Get the descendants/children of the w
+            wchild = get_children_from_nodes(g, w)
+            # Get the intersection of the descendants and the immediate causal history
+            wchild_ich = intersect(wchild, ich)
+            # Get the reduced condition set
+            # print w
+            if returnRemovedEdges:
+                w, edges = self.transitive_reduction(w, wchild_ich, True)
+                edges = [(get_node_set(edge[0],nvar), get_node_set(edge[1],nvar)) for edge in edges]
+            else:
+                w = self.transitive_reduction(w, wchild_ich)
+
+        wlist  = convert_nodes_to_listofset(w, nvar)
+        # ptc = convert_nodes_to_listofset(ptc, nvar)
+
+        # Get the remaining parents of the target
+        ptrlist = list(set(pt_list)-set(ptclist))
+        if verbosity:
+            print("the parents of the target in the remaining variables:")
+            print(ptrlist)
+
+        # Get the condition set in the remaining variables, f, based on the approximation level
+        if level == 0 or len(srcset) == nvar:  # 0 order approximation or srcset1 and srcset2 occupy all the variables
+            flist, pwlist, pptclist = [], [], []
+        elif level == 1:  # 1st order approximation: only consider the remaining parents of the target
+            pwlist, pptclist = [], []
+            flist = deepcopy(ptrlist)
+        elif level == 2:  # 2nd order approximation: consider both the parents of ptc and w and the remaining parents of the target
+            pwlist   = [node2 for node1 in wlist for node2 in self.search_parents(node1) if node2[0] not in srcset]
+            pptclist = [node2 for node1 in ptclist for node2 in self.search_parents(node1) if node2[0] not in srcset]
+            flist    = list(set(pwlist+pptclist+ptrlist))
+
+        # Conduct the weighted transitive reduction on pptc and pw (level == 2) if required
+        pwptclist = pwlist + pptclist
+        if transitive and level >= 2:
+            pwptc = [get_node_number(node, nvar, 0) for node in pwptclist]
+            # Get the descendants/children of the pwptc
+            pwptcchild = get_children_from_nodes(g, pwptc)
+            # Get the intersection of the descendants and the immediate causal history & w
+            pwptcchild_ichw = intersect(pwptcchild, ich+w)
+            # Get the reduced condition set
+            if returnRemovedEdges:
+                pwptc, edges2 = self.transitive_reduction(pwptc, pwptcchild_ichw, True)
+                edges2 = [(get_node_set(edge[0],nvar), get_node_set(edge[1],nvar)) for edge in edges2]
+            else:
+                pwptc = self.transitive_reduction(pwptc, pwptcchild_ichw)
+            pwptclist = convert_nodes_to_listofset(pwptc, nvar)
+            flist = list(set(pwptclist + ptrlist))
+        else:
+            edges2 = []
+
+        if verbosity:
+            print("The conditions includes:")
+            print(wlist)
+            print("The parents of the target in the causal path(s):")
+            print(ptclist)
+            print("The condition set in the rest of the variables:")
+            print(flist)
+
+        if transitive and returnRemovedEdges:
+            return wlist, ptclist, flist, pwptclist, edges, edges2
+        else:
+            return wlist, ptclist, flist, pwptclist
 
 
     def search_cit_components(self, sources, target, mpid=False, transitive=False, returnRemovedEdges=False, verbosity=1):
@@ -652,9 +770,11 @@ class causal_network(object):
             edgeremove = []
             for i in range(n1):
                 for j in range(n2):
-                    we1 = weights[v1ind[i], v2ind[j]]
+                    # we1 = weights[v1ind[i], v2ind[j]]
+                    we1 = weights_new[v1ind[i], v2ind[j]]
                     we1o= weightso[v1ind[i], v2ind[j]]
-                    if we1 < we1o:
+                    # if we1 < we1o:
+                    if we1 > we1o:
                         edgeremove.append((v1[i],v2[j]))
 
         # Return
