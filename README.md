@@ -2,7 +2,7 @@
 ===========================================================================================
 
 ## Introduction
-This is an open-source program for evaluating the dynamics of complex system dynamics by using a recently-proposed causal history analysis framework.
+This is an open-source program for evaluating the complex system dynamics by using a recently-proposed causal history analysis framework.
 
 ## References
 - Jiang, P., & Kumar, P. (2019). Bundled interaction from causal history in complex system dynamics. in preparation.
