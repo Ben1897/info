@@ -1,12 +1,53 @@
 """
 The script is for computing the information transfer based on the data and the
 causal network.
+
+class info_network()
+    __init__()
+    __approximate_causalDict()
+    update_causalDict()
+    update_causalDict_thres()
+    udpate_causalDict_one()
+    generate_lagfunctions()
+    compute_total_infotrans()
+    comptue_pairwise_infotrans()
+    compute_2n_infotrans()
+    compute_3n_infotrans()
+    compute_mitp()
+    compute_mitp_Markov()
+    compute_mpid()
+    compute_mpid_Markov()
+    compute_bundled()
+    compute_cit()
+    compute_cit_Markov()
+    compute_cc_set()
+    compute_mi_set()
+    compute_te_set()
+    comptue_pairwise_infotrans_set()
+    compute_2n_infotrans_set()
+    compute_3n_infotrans_set()
+    compute_mitp_set()
+    compute_mitp_Markov_set()
+    compute_mpid_set()
+    compute_mpid_Markov_set()
+    compute_bundled_set()
+    compute_cit_set()
+    compute_cit_Markov_set()
+
+intersection()
+
+References:
+Schreiber, Thomas. "Measuring information transfer." Physical review letters 85.2 (2000): 461.
+Runge, Jakob, et al. "Escaping the curse of dimensionality in estimating multivariate transfer entropy." Physical review letters 108.25 (2012): 258701.
+Runge, Jakob. "Quantifying information transfer and mediation along causal pathways in complex systems." Physical Review E 92.6 (2015): 062829.
+Jiang, Peishi, and Praveen Kumar. "Interactions of information transfer along separable causal paths." Physical Review E 97.4 (2018): 042310.
+Jiang, Peishi, and Praveen Kumar. "Information transfer from causal history in complex system dynamics." Physical Review E 99.1 (2019): 012306.
+Jiang, Peishi, and Praveen Kumar. "Bundled causal history interaction" submitted.
+
 """
 
 import numpy as np
-
 from copy import deepcopy
-
 from .info import info, computeMI, computeCMI, computeMIKNN, computeCMIKNN
 from ..utils.causal_network import causal_network
 from ..utils.others import reorganize_data, dropna
@@ -73,7 +114,6 @@ class info_network(object):
         if self.network.nvar != self.nvar:
             raise Exception('The numbers of variables in data and the causalDict are not equal!')
 
-
     def __approximate_causalDict(self, verbosity=1):
         """approximate the causalDict based on the 1st order approximation principle."""
         # Update causalDict
@@ -108,7 +148,6 @@ class info_network(object):
         # Update causalDict
         self.causalDict = newcausalDict
 
-
     def update_causalDict(self, causalDict, verbosity=1):
         """Update the causalDict."""
         # Update causalDict
@@ -122,7 +161,6 @@ class info_network(object):
 
         # Update the lag functions (coupling strengths)
         self.generate_lagfunctions()
-
 
     def update_causalDict_thres(self, csthreshold, verbosity=1):
         """Update the causalDict based on the coupling strength threshold."""
@@ -162,7 +200,6 @@ class info_network(object):
 
         # Update the lag functions (coupling strengths)
         self.generate_lagfunctions()
-
 
     def update_causalDict_one(self, verbosity=1):
         """Update the causalDict so that the directed influence between two variables only include
@@ -217,7 +254,6 @@ class info_network(object):
 
         # Update the lag functions (coupling strengths)
         self.generate_lagfunctions()
-
 
     def generate_lagfunctions(self):
         """Generate the lag functions as momentary information transfer and mutual information"""
@@ -274,7 +310,6 @@ class info_network(object):
                     elif approach in knn_approaches:
                         self.lagfuncmit[i,j,l] = computeCMIKNN(data=data12condn, k=k) / np.log(base)
 
-
     def compute_total_infotrans(self, target_ind, sst=False, verbosity=1):
         """
         Compute the total information transfer to a target. I(Xtar; P(Xtar))
@@ -313,7 +348,6 @@ class info_network(object):
             return inforesult, sstresult
 
         return inforesult
-
 
     def compute_pairwise_infotrans(self, source_ind, target_ind, conditioned=True, sst=False, verbosity=1):
         """
@@ -392,7 +426,6 @@ class info_network(object):
 
         return inforesult
 
-
     def compute_2n_infotrans(self, source, target, conditioned=True, causalpath=True, sst=False, verbosity=1):
         """
         Compute the information transfer from a source node to a target node. (MITP or MIT)
@@ -463,7 +496,6 @@ class info_network(object):
 
         return inforesult
 
-
     def compute_3n_infotrans(self, source1, source2, target, conditioned=True, transitive=False, verbosity=1):
         """
         Compute the information transfer from two source nodes to a target node. (MPID)
@@ -521,7 +553,6 @@ class info_network(object):
                               kernel=kernel, k=k, base=base, conditioned=False)
 
         return inforesult
-
 
     def compute_mitp(self, sources, target, conditioned=True, transitive=False, sst=False, verbosity=1):
         """Compute the momentary information transfer from sources to target.
@@ -586,7 +617,6 @@ class info_network(object):
 
         return mitp
 
-
     def compute_mitp_markov(self, sources, target, conditioned=True, sst=False, verbosity=1):
         """Compute the Markovian momentary information transfer from sources to target.
 
@@ -647,7 +677,6 @@ class info_network(object):
             return mitp, sstmitp
 
         return mitp
-
 
     def compute_mpid(self, sources1, sources2, target, transitive=False, conditioned=True, verbosity=1):
         """Compute the momentary partial information decomposition from two sets of sources to the target.
@@ -713,7 +742,6 @@ class info_network(object):
 
         return inforesult
 
-
     def compute_mpid_markov(self, sources1, sources2, target, conditioned=True, verbosity=1):
         """Compute the momentary partial information decomposition from two sets of sources to the target.
 
@@ -765,7 +793,6 @@ class info_network(object):
                           kernel=kernel, k=k, base=base, conditioned=True, xyindex=xyindex)
 
         return inforesult
-
 
     def compute_bundled(self, srcset1, srcset2, target, tau=5, level=1, transitive=True, verbosity=1):
         """Compute the interaction of information transfer from two bundled sources.
@@ -944,7 +971,6 @@ class info_network(object):
         result['elements'] = {'w':w, 'ptc':ptc, 'f':f, 'pwptc':pwptc, 'removedEdges': edges+edges2}
         return result
 
-
     def compute_cit(self, sources, target, transitive=False, sst=False, pidcompute=False, approxDistant=False, verbosity=1):
         """Compute the cumulative information transfer from sources to target.
 
@@ -1097,7 +1123,6 @@ class info_network(object):
 
         return result
 
-
     def compute_cit_markov(self, sources, target, sst=False, pidcompute=False, verbosity=1):
         """Compute the Markovian cumulative information transfer from sources to target.
 
@@ -1205,7 +1230,6 @@ class info_network(object):
 
         return result
 
-
     def compute_cc_set(self, tau=1, sst=False, verbosity=1):
         """
         Compute the pairwise correlation coefficient.
@@ -1241,7 +1265,6 @@ class info_network(object):
                 # inforesults[j,i] = inforesults[i,j]
 
         return inforesults
-
 
     def compute_mi_set(self, sst=False, verbosity=1):
         """
@@ -1289,7 +1312,6 @@ class info_network(object):
         else:
             return inforesults
 
-
     def compute_te_set(self, sst=False, verbosity=1):
         """
         Compute the pairwise transfer entropy.
@@ -1333,7 +1355,6 @@ class info_network(object):
             return inforesults, sstresults
         else:
             return inforesults
-
 
     def compute_pairwise_infotrans_set(self, conditioned=True, sst=False, verbosity=1):
         """
@@ -1390,7 +1411,6 @@ class info_network(object):
         else:
             return inforesults
 
-
     def compute_2n_infotrans_set(self, source_ind, target_ind, conditioned=True, taumax=5, causalpath=True, verbosity=1):
         """
         Compute the information transfer from a source node to a target node with lags varying from 1 to taumax
@@ -1428,7 +1448,6 @@ class info_network(object):
 
         # Return the results
         return results
-
 
     def compute_3n_infotrans_set(self, source1_ind, source2_ind, target_ind, conditioned=True, taumax=5, verbosity=1):
         """
@@ -1470,7 +1489,6 @@ class info_network(object):
 
         # Return the results
         return results
-
 
     def compute_mitp_set(self, taumax=None, conditioned=True, sst=False, transitive=False, verbosity=1):
         """Compute the momentary information transfer from sources to target.
@@ -1522,7 +1540,6 @@ class info_network(object):
         else:
             return mitpset
 
-
     def compute_mitp_markov_set(self, taumax=None, conditioned=True, sst=False, verbosity=1):
         """Compute the Markovian momentary information transfer from sources to target.
 
@@ -1567,7 +1584,6 @@ class info_network(object):
         else:
             return mitpset
 
-
     def compute_mpid_markov_set(self, taurange=[10], conditioned=True, verbosity=1):
         """Compute the Markovian momentary information transfer from sources to target.
 
@@ -1604,7 +1620,6 @@ class info_network(object):
 
         # Return
         return mitpset
-
 
     def compute_bundled_set(self, srcset1, srcset2, target, taumax, level=1, transitive=True, verbosity=1):
         """Compute the interaction of information transfer from two bundled sources with increasing lags upt to taumax.
@@ -1778,7 +1793,6 @@ class info_network(object):
         result['dimsize'] = dimsize
 
         return result
-
 
     def compute_cit_set(self, sources, target, taumax, pidcompute=False, sst=False, approxDistant=False, transitive=False, verbosity=1):
         """Compute the cumulative information transfer from source_ind_set to target_ind with increasing lags up to taumax.
@@ -2021,7 +2035,6 @@ class info_network(object):
 
         return result
 
-
     def compute_cit_markov_set(self, sources, target, taumax, pidcompute=False, sst=False, verbosity=1):
         """Compute the Markovian cumulative information transfer from source_ind_set to target_ind with increasing lags up to taumx.
 
@@ -2171,7 +2184,6 @@ class info_network(object):
             result['sstpast'] = sstpastset
 
         return result
-
 
 def intersection(lst1, lst2):
     lst3 = [value for value in lst1 if value in lst2]

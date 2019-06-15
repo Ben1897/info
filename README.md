@@ -4,11 +4,35 @@
 ## Introduction
 This is an open-source program for evaluating the complex system dynamics by using a recently-proposed causal history analysis framework.
 
+![Illustration of Causal History Analysis Framework in a Quadvariate system](FigDiagram.pdf)
+
 ## References
-- Jiang, P., & Kumar, P. (2019). Bundled interaction from causal history in complex system dynamics. in preparation.
-- Jiang, P., & Kumar, P. (2019). Using information flow for whole system understanding from component dynamics. in preparation.
+- Jiang, P., & Kumar, P. (2019). Bundled interaction from causal history in complex system dynamics. submitted.
+- Jiang, P., & Kumar, P. (2019). Using information flow for whole system understanding from component dynamics. submitted.
 - Jiang, P., & Kumar, P. (2019). Information transfer from causal history in complex system dynamics. Physical Review E, 99(1), 012306.
 - Jiang, P., & Kumar, P. (2018). Interactions of information transfer along separable causal paths. Physical Review E, 97(4), 042310.
+
+## Code Structure
+```
+|   README.md
+|   environment.yml
+|
+|---info                         # the main code folder
+|   |   core                     # the core python files
+|   |   |   info.py              # the code for computing information measures
+|   |   |   info_network.py      # the code for computing information measures in a DAG
+|   |   models                   # several synthetic models
+|   |   |   logistic.py          # the multivariate noisy logistic model
+|   |   |   others.py            # other models
+|   |   utils                    # utility functions used by codes in the core and models folders
+|
+|---examples                     # the example folders (including jupyter notebook for illustration)
+|   |   logistic                 # causal history analysis for logistic model
+|   |   OU                       # causal history analysis for Ornstein–Uhlenbeck process
+|   |   Lorenz                   # causal history analysis for the Lorenz model
+|   |   streamchemistry          # causal history analysis for an observed stream chemistry dynamics
+|   |   bundled_streamchemistry  # bundled causal history analysis for an observed stream chemistry dynamics
+```
 
 ## Requirements
 1. Add the folder into your environment variable PYTHONPATH.

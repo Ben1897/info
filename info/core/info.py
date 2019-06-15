@@ -1,29 +1,39 @@
 """
-A class for calculating the statistical information.
-
-1D: H(X)
-2D: H(X), H(Y), H(X|Y), H(Y|X), I(X;Y)
-3D: H(X1), H(Y), H(X2), I(X1;Y), I(X1;X2), I(X2;Y), T(Y->X), II, I(X1,Y;X2), R, S, U1, U2
+A class for calculating the information measures.
 
 class info()
   __init__()
-  __computeInfo1D()
-  __computeInfo1D_conditioned()
-  __computeInfo2D()
-  __computeInfo2D_conditioned()
-  __comptueInfo2D_multivariate_conditioned()
+  __check_xyindex()
+  __computeInfo1D_kde()
+  __computeInfo1D_knn()
+  __computeInfo1D_conditioned_kde()
+  __computeInfo1D_conditioned_knn()
+  __computeInfo2D_kde()
+  __computeInfo2D_knn()
+  __computeInfo2D_conditioned_kde()
+  __computeInfo2D_conditioned_knn()
+  __computeInfo3D_kde()
+  __computeInfo3D_knn()
+  __computeInfo3D_conditioned_kde()
+  __computeInfo3D_conditioned_knn()
   __computeInfo3D()
   __computeInfo3D_conditioned()
   __assemble()
+  normalizeinfo()
 
 equal()
 computeEntropy()
+computeEntropyKNN()
 computeConditionalInfo()
-computeMutualInfo()
-computeConditionalMutualInformation()
+computeMI()
+computeCMI()
+computeMIKNN()
+computeCMIKNN()
 
-Ref:
-Allison's SUR paper
+References:
+Kraskov, Alexander, Harald Stogbauer, and Peter Grassberger. "Estimating mutual information." Physical review E 69.6 (2004): 066138.
+Goodwell, Allison E., and Praveen Kumar. "Temporal information partitioning: Characterizing synergy, uniqueness, and redundancy in interacting environmental variables." Water Resources Research 53.7 (2017): 5920-5942.
+Jiang, Peishi, and Praveen Kumar. "Interactions of information transfer along separable causal paths." Physical Review E 97.4 (2018): 042310.
 
 """
 
@@ -652,7 +662,6 @@ class info(object):
         self.uxz = self.ixz_w - self.r                                      # U(X;Z|W)
         self.uyz = self.iyz_w - self.r                                      # U(Y;Z|W)
 
-
     def __computeInfo3D_knn(self):
         '''
         Compute H(X), H(Y), H(Z), I(Y;Z), I(X;Z), I(X;Y), I(Y,Z|X), I(X,Z|Y), II,
@@ -752,7 +761,6 @@ class info(object):
         self.s = self.r + self.ii                                           # Sc
         self.uxz = self.ixz - self.r                                      # U(X;Z|W)
         self.uyz = self.iyz - self.r                                      # U(Y;Z|W)
-
 
     def __computeInfo3D_conditioned_knn(self):
         '''
@@ -900,85 +908,6 @@ class info(object):
         self.s = self.r + self.ii                                           # Sc
         self.uxz = self.ixz_w - self.r                                      # U(X;Z|W)
         self.uyz = self.iyz_w - self.r                                      # U(Y;Z|W)
-
-
-    # def __computeInfo2D_multivariate_conditioned(self):
-    #     '''
-    #     Compute H(Xset|W), H(Yset|W), H(Xset,Yset|W), I(Xset,Yset|W)
-    #     used for computing the accumulated information transfer (AIT)
-    #     '''
-    #     base       = self.base
-    #     data       = self.data
-    #     computer   = self.computer
-    #     averaged   = self.averaged
-    #     npts, ndim = data.shape
-    #     pdfs     = self.pdfs
-
-    #     xlastind, ylastind = self.xlastind, self.ylastind
-
-    #     # Compute the pdfs
-    #     _, xpdfs  = computer.computepdf(data[:,range(0,xlastind)])
-    #     _, ypdfs  = computer.computepdf(data[:,range(xlastind,ylastind)])
-    #     _, wpdfs  = computer.computepdf(data[:,range(ylastind,ndim)])
-    #     _, xypdfs = computer.computepdf(data[:,range(0,ylastind)])
-    #     _, xwpdfs = computer.computepdf(data[:,range(0,xlastind)+range(ylastind,ndim)])
-    #     _, ywpdfs = computer.computepdf(data[:,range(xlastind,ndim)])
-
-    #     # compute all the entropies
-    #     self.hw    = computeEntropy(wpdfs, base=base, averaged=averaged)    # h(w)
-    #     self.hx    = computeEntropy(xpdfs, base=base, averaged=averaged)    # h(x)
-    #     self.hy    = computeEntropy(ypdfs, base=base, averaged=averaged)    # h(y)
-    #     self.hxy   = computeEntropy(xypdfs, base=base, averaged=averaged)   # h(x,y)
-    #     self.hxw   = computeEntropy(xwpdfs, base=base, averaged=averaged)   # h(x,w)
-    #     self.hyw   = computeEntropy(ywpdfs, base=base, averaged=averaged)   # h(y,w)
-    #     self.hxyw  = computeEntropy(pdfs, base=base, averaged=averaged)     # h(x,y,w)
-    #     self.hx_w  = self.hxw - self.hw                                     # h(x|w)
-    #     self.hy_w  = self.hyw - self.hw                                     # h(y|w)
-    #     self.hx_y  = self.hxy - self.hy                                     # h(x|y)
-    #     self.hy_x  = self.hxy - self.hx                                     # h(y|x)
-
-    #     # Compute all the conditional mutual information
-    #     self.ixy   = self.hx + self.hy - self.hxy                           # I(X;Y)
-    #     self.ixy_w = self.hxw + self.hyw - self.hw - self.hxyw              # I(X;Y|W)
-
-    # def computeInfo2D_multiple_conditioned(self, xlastind, ylastind):
-    #     '''
-    #     Compute H(Xset|W), H(Yset|W), H(Xset,Yset|W), I(Xset,Yset|W)
-    #     used for computing the accumulated information transfer (AIT)
-    #     '''
-    #     base       = self.base
-    #     data       = self.data
-    #     computer   = self.computer
-    #     averaged   = self.averaged
-    #     npts, ndim = data.shape
-
-    #     if xlastind > ylastind:
-    #         raise Exception("xlastind %d is larger than ylastind %d" % (xlastind, ylastind))
-    #     if xlastind > ndim-1:
-    #         raise Exception("xlastind %d is larger than the maximum dimension" % xlastind)
-    #     if ylastind > ndim-1:
-    #         raise Exception("ylastind %d is larger than the maximum dimension" % ylastind)
-
-    #     # Compute the pdfs
-    #     _, pdfs   = computer.computePDF(data)
-    #     # _, xpdfs  = computer.computePDF(data[:,range(0,xlastind)])
-    #     # _, ypdfs  = computer.computePDF(data[:,range(xlastind,ylastind)])
-    #     _, wpdfs  = computer.computePDF(data[:,range(ylastind,ndim)])
-    #     # _, xypdfs = computer.computePDF(data[:,range(0,ylastind)])
-    #     _, xwpdfs = computer.computePDF(data[:,range(0,xlastind)+range(ylastind,ndim)])
-    #     _, ywpdfs = computer.computePDF(data[:,range(xlastind,ndim)])
-
-    #     # Compute all the conditional mutual information
-    #     # Calculate the log of pdf
-    #     pdfs_log, wpdfs_log    = np.ma.log(pdfs), np.ma.log(wpdfs)
-    #     xwpdfs_log, ywpdfs_log = np.ma.log(xwpdfs), np.ma.log(ywpdfs)
-    #     pdfs_log = (pdfs_log.filled(0) + wpdfs_log.filled(0) - xwpdfs_log.filled(0) - ywpdfs_log.filled(0)) / np.log(base)
-
-    #     # Normalize the joint PDF
-    #     pdfs_norm = pdfs / pdfs.sum()
-
-    #     # The conditional probability
-    #     return np.sum(pdfs_norm*pdfs_log)
 
     def __assemble(self):
         '''
@@ -1280,7 +1209,6 @@ def computeConditionalInfo(xpdfs, ypdfs, xypdfs, base=2):
     # Calculate H(Y|X)
     return np.sum(xpdfs1d*hy_x_x)
 
-
 def computeMI(data, approach='kde_c', bandwidth='silverman', kernel='gaussian', base=2, xyindex=None):
     '''
     Compute the mutual information I(X;Y) based on the original formula (not the average version).
@@ -1327,7 +1255,6 @@ def computeMI(data, approach='kde_c', bandwidth='silverman', kernel='gaussian', 
     ypdfs_log = ypdfs_log.filled(0) / np.log(base)
 
     return np.sum((pdfs_log - xpdfs_log - ypdfs_log)*pdfsn)
-
 
 def computeCMI(data, approach='kde_c', bandwidth='silverman', kernel='gaussian', base=2, xyindex=None):
     '''
@@ -1385,7 +1312,6 @@ def computeCMI(data, approach='kde_c', bandwidth='silverman', kernel='gaussian',
 
     return np.sum((pdfs_log - xpdfs_log - ypdfs_log)*pdfsn)
 
-
 def computeMIKNN(data, k=2, xyindex=[1]):
     '''
     Compute the conditional mutual information I(X;Y|Z) based on the original formula (not the average version).
@@ -1433,7 +1359,6 @@ def computeMIKNN(data, k=2, xyindex=[1]):
 
     # Compute information metrics
     return digamma(npts) + digamma(k) - np.mean(digamma(kyset)) - np.mean(digamma(kxset))
-
 
 def computeCMIKNN(data, k=2, xyindex=[1,2]):
     '''
