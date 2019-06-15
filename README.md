@@ -4,7 +4,9 @@
 ## Introduction
 This is an open-source program for evaluating the complex system dynamics by using a recently-proposed causal history analysis framework.
 
-![Illustration of Causal History Analysis Framework in a Quadvariate system](FigDiagram.jpg = 100x)
+<p align="center">
+<img src="FigDiagram.jpg" alt="Illustration of Causal History Analysis Framework in a Quadvariate system" width="500"/>
+</p>
 
 ## References
 - Jiang, P., & Kumar, P. (2019). Bundled interaction from causal history in complex system dynamics. submitted.
