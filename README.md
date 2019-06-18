@@ -9,8 +9,8 @@ This is an open-source program for evaluating the complex system dynamics by usi
 </p>
 
 ## References
-- Jiang, P., & Kumar, P. (2019). Bundled interaction from causal history in complex system dynamics. submitted.
-- Jiang, P., & Kumar, P. (2019). Using information flow for whole system understanding from component dynamics. submitted.
+- Jiang, P., & Kumar, P. (2019). Bundled interaction from causal history in complex system dynamics. Submitted.
+- Jiang, P., & Kumar, P. (2019). Using information flow for whole system understanding from component dynamics. Submitted.
 - Jiang, P., & Kumar, P. (2019). Information transfer from causal history in complex system dynamics. Physical Review E, 99(1), 012306.
 - Jiang, P., & Kumar, P. (2018). Interactions of information transfer along separable causal paths. Physical Review E, 97(4), 042310.
 
