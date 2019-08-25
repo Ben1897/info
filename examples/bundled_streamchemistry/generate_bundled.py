@@ -12,8 +12,6 @@ from info.utils.others import reorganize_data, dropna
 ##############
 # Parameters #
 ##############
-# fns = ['parents_7hr_instream_strict_7var_raw_anomaly_taumax5.pkl',
-#        'parents_7hr_instream_strict_6var_SO4_anomaly_taumax5.pkl']
 fns = ['parents_7hr_instream_strict_7var_raw_anomaly_taumax5.pkl']
 
 level = int(sys.argv[1])
@@ -21,10 +19,6 @@ knn = int(sys.argv[2])
 print('The approximation level: %d' % level)
 print('k = %d' % knn)
 infofilename = './bundled_info_ph_level' + str(level)  + '_k' + str(knn) + '_taumax5.npy'
-# level=1
-# level = int(input("Please enter the level of approximation: "))
-# knn = 5
-# taumax = 100
 taumax = 20
 prtypes = ['parents_nocontemp']
 transitive = True
@@ -35,21 +29,6 @@ srcsets1[fns[0]] = ['Na mg/l', 'Al ug/l', 'Ca mg/l']
 srcsets2[fns[0]] = ['Cl mg/l', 'SO4 mg/l']
 targets[fns[0]] = 'pH'
 
-# srcsets1[fns[1]] = ['fc_Na_mg/l_UHF', 'fc_Al_ug/l_UHF', 'fc_Ca_mg/l_UHF']
-# srcsets2[fns[1]] = ['fc_Cl_mg/l_UHF', 'fc_SO4_mg/l_UHF']
-# targets[fns[1]] = 'fc_pH_UHF'
-
-# if level == 1:
-    # infofilename = './bundled_info_ph_' +   + 'taumax5.npy'
-# elif level == 2:
-    # infofilename = './bundled_info_ph_level2_taumax5.npy'
-# elif level == 0:
-    # infofilename = './bundled_info_ph_level0_taumax5.npy'
-# else:
-    # raise Exception('Wrong level!')
-
-#'fc_Ca_mg/l_UHF', 'fc_Al_ug/l_UHF', 'fc_Cl_mg/l_UHF', 'fc_Na_mg/l_UHF', 'fc_SO4_mg/l_UHF', 'fc_pH_UHF'
-#'log_flow', 'Na mg/l', 'Cl mg/l', 'Al ug/l', 'Ca mg/l', 'SO4 mg/l', 'pH'
 ###############
 # Compute CIT #
 ###############
@@ -130,12 +109,4 @@ results = {"info":info_to_save, "pid":pid_to_save, "sizedim":sizedim_to_save, "l
 ####################
 # Save the results #
 ####################
-# infofilename = 'info_instream_new_7var_raw_anomaly_transred_taumax5.pkl'
-
 np.save(infofilename, results)
-
-# dfns = ['stream_cmiknn_parallel_instream_results.pkl',
-#         'stream_cmiknn_parallel_instream_strict_results.pkl',
-#         'stream_cmiknn_parallel_instream_results.pkl',
-#         'stream_cmiknn_parallel_instream_results.pkl',
-#         'stream_cmiknn_parallel_instream_results.pkl',
