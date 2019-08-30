@@ -118,7 +118,7 @@ We provide the codes/notebooks for reproducing the five examples published in ou
   - Generate the resulting plots by running the following python codes `show_CHA.py` and `show_CHA_varyingk.py`.
 
 ## License
-This software is freeware and is released under GNU GPL. See LICENSE file for more information.
+This software is freeware and is released under restricted licences. See LICENSE.txt for more information.
 
 ## Contacts
 Peishi Jiang (pjiang6@illinois.edu), Praveen Kumar (kumar1@illinois.edu)
